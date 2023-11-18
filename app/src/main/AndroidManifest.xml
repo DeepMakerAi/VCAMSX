@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+          xmlns:tools="http://schemas.android.com/tools">
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
+
+    <application
+            android:allowBackup="true"
+            android:dataExtractionRules="@xml/data_extraction_rules"
+            android:fullBackupContent="@xml/backup_rules"
+            android:icon="@mipmap/ic_launcher"
+            android:label="@string/app_name"
+            android:roundIcon="@mipmap/ic_launcher_round"
+            android:supportsRtl="true"
+            android:theme="@style/Theme.VCAMSX"
+            tools:targetApi="31">
+        <activity
+                android:name=".MainActivity"
+                android:exported="true"
+                android:label="@string/app_name"
+                android:theme="@style/Theme.VCAMSX">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity>
+        <meta-data
+                android:name="xposedmodule"
+                android:value="true"/>
+        <!-- 模块的简介（在框架中显示） -->
+        <meta-data
+                android:name="xposeddescription"
+                android:value="虚拟摄像" />
+        <!-- 模块最低支持的Api版本 一般填54即可 -->
+        <meta-data
+                android:name="xposedminversion"
+                android:value="54"/>
+
+        <provider
+                android:name=".utils.VideoProvider"
+                android:authorities="com.wangyiheng.vcamsx.videoprovider"
+                android:exported="true"
+                android:grantUriPermissions="true">
+        </provider>
+
+
+    </application>
+
+</manifest>
