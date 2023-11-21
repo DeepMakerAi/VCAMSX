@@ -24,7 +24,7 @@ import java.util.*
 
 class MainHook : IXposedHookLoadPackage {
     private var videoStatus: VideoStatues? = null
-    var infoManager : InfoManager?= null
+    private var infoManager : InfoManager?= null
     private lateinit var dataSourceFactory: DefaultDataSource.Factory
     private var player_exoplayer: ExoPlayer? = null
     private var context: Context? = null
@@ -34,7 +34,6 @@ class MainHook : IXposedHookLoadPackage {
 
     private var c2_state_callback_class: Class<*>? = null
     private var c2_state_callback: CameraDevice.StateCallback? = null
-    private val gson = Gson()
 
     // Xposed模块中
     override fun handleLoadPackage(lpparam: XC_LoadPackage.LoadPackageParam) {

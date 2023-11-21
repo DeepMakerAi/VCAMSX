@@ -16,6 +16,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.wangyiheng.vcamsx.modules.home.controllers.HomeController
@@ -57,37 +58,55 @@ fun HomeScreen() {
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
-        Column {
-            Button(onClick = {
-                requestPermissionLauncher.launch(Manifest.permission.READ_EXTERNAL_STORAGE)
-            }) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.width(150.dp)
+        ) {
+            // 使按钮宽度等于列的最大宽度
+            Button(
+                modifier = Modifier.fillMaxWidth(),
+                onClick = {
+                    requestPermissionLauncher.launch(Manifest.permission.READ_EXTERNAL_STORAGE)
+                }
+            ) {
                 Text("选择视频")
             }
 
-            Row {
-                Text("视频开关：")
+            Row(
+                verticalAlignment = Alignment.CenterVertically, // 对齐文本和开关
+                modifier = Modifier.fillMaxWidth() // 拉伸以匹配按钮宽度
+            ) {
+                Text("视频开关：", modifier = Modifier.weight(1f)) // 权重使文本占据大部分空间
                 Switch(
                     checked = homeController.isVideoEnabled.value,
                     onCheckedChange = {
                         homeController.isVideoEnabled.value = it
                         homeController.saveState()
-                        Toast.makeText(context, (if (it) "视频打开" else "视频关闭"), Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, if (it) "视频打开" else "视频关闭", Toast.LENGTH_SHORT).show()
                     }
                 )
             }
 
-            Row {
-                Text("音量开关：")
+            Row(
+                verticalAlignment = Alignment.CenterVertically, // 对齐文本和开关
+                modifier = Modifier.fillMaxWidth() // 拉伸以匹配按钮宽度
+            ) {
+                Text("音量开关：", modifier = Modifier.weight(1f)) // 权重使文本占据大部分空间
                 Switch(
                     checked = homeController.isVolumeEnabled.value,
                     onCheckedChange = {
                         homeController.isVolumeEnabled.value = it
                         homeController.saveState()
-                        Toast.makeText(context, (if (it) "声音打开" else "声音关闭"), Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, if (it) "声音打开" else "声音关闭", Toast.LENGTH_SHORT).show()
                     }
                 )
             }
-
         }
     }
+}
+
+@Preview
+@Composable
+fun PreviewMessageCard() {
+    HomeScreen()
 }
