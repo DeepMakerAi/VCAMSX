@@ -2,18 +2,17 @@ package com.wangyiheng.vcamsx
 
 import android.app.Application
 import android.content.Context
-import android.content.SharedPreferences
 import android.hardware.camera2.CameraDevice
-import android.hardware.camera2.CaptureRequest
 import android.os.Handler
+import android.os.Looper
 import android.view.Surface
+import android.widget.Toast
 import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import cn.dianbobo.dbb.util.HLog
-import com.crossbowffs.remotepreferences.RemotePreferences
-import com.google.gson.Gson
 import com.wangyiheng.vcamsx.data.models.VideoStatues
 import com.wangyiheng.vcamsx.utils.InfoManager
 import de.robv.android.xposed.*
@@ -28,13 +27,13 @@ class MainHook : IXposedHookLoadPackage {
     private lateinit var dataSourceFactory: DefaultDataSource.Factory
     private var player_exoplayer: ExoPlayer? = null
     private var context: Context? = null
-    private var original_c2_preview_Surfcae: Surface? = null
+    private var original_c2_preview_Surface: Surface? = null
 
     private var c2_virtual_surface: Surface? = null
 
     private var c2_state_callback_class: Class<*>? = null
     private var c2_state_callback: CameraDevice.StateCallback? = null
-
+    var mainThreadHandler: Handler? = null
     // Xposed模块中
     override fun handleLoadPackage(lpparam: XC_LoadPackage.LoadPackageParam) {
         if(lpparam.packageName == "com.wangyiheng.vcamsx"){
@@ -55,6 +54,8 @@ class MainHook : IXposedHookLoadPackage {
                         try {
                             context = applicationContext
                             initStatus()
+                            mainThreadHandler = Handler(Looper.getMainLooper())
+                            initPlayer()
                         } catch (ee: Exception) {
                             HLog.d("VCAM", "$ee")
                         }
@@ -84,7 +85,6 @@ class MainHook : IXposedHookLoadPackage {
                     }
                 }
             })
-
     }
 
 
@@ -103,7 +103,7 @@ class MainHook : IXposedHookLoadPackage {
                     c2_virtual_surface!!.release()
                     c2_virtual_surface = null
                 }
-                original_c2_preview_Surfcae = null
+                original_c2_preview_Surface = null
             }
         })
 
@@ -119,11 +119,13 @@ class MainHook : IXposedHookLoadPackage {
                         val surfaceInfo = param.args[0].toString()
                         HLog.d("surfaceInfo:",surfaceInfo)
                         if (!surfaceInfo.contains("Surface(name=null)")) {
-                            if(original_c2_preview_Surfcae ==null ){
-                                original_c2_preview_Surfcae = param.args[0] as Surface
+                            if(original_c2_preview_Surface ==null ){
+                                original_c2_preview_Surface = param.args[0] as Surface
                             }
                         }
-                        process_camera2_exoplay_play()
+                        if(original_c2_preview_Surface?.isValid == true){
+                            process_camera2_exoplay_play()
+                        }
                     }
                 }
             })
@@ -139,43 +141,53 @@ class MainHook : IXposedHookLoadPackage {
             @Throws(Throwable::class)
             override fun beforeHookedMethod(param: MethodHookParam) {
                 HLog.d(msg="APP断开")
-                if(c2_virtual_surface!=null){
-                    player_exoplayer!!.stop()
-                    c2_virtual_surface!!.release()
-                    c2_virtual_surface = null
-                }
-                original_c2_preview_Surfcae = null
+                player_exoplayer!!.stop()
+                original_c2_preview_Surface = null
             }
         })
     }
 
     fun initPlayer(){
-        player_exoplayer = ExoPlayer.Builder(context!!).build()
-        dataSourceFactory = DefaultDataSource.Factory(context!!)
-        player_exoplayer!!.repeatMode = Player.REPEAT_MODE_ALL
-        if(videoStatus != null && videoStatus!!.volume){
-            player_exoplayer!!.volume = 1f
-        }else{
-            player_exoplayer!!.volume = 0f
+        if(player_exoplayer == null){
+            player_exoplayer = ExoPlayer.Builder(context!!).build()
+            dataSourceFactory = DefaultDataSource.Factory(context!!)
+            player_exoplayer!!.repeatMode = Player.REPEAT_MODE_ALL
+            if(videoStatus != null && videoStatus!!.volume){
+                player_exoplayer!!.volume = 1f
+            }else{
+                player_exoplayer!!.volume = 0f
+            }
+            player_exoplayer!!.shuffleModeEnabled = true
+            player_exoplayer!!.addListener(object : Player.Listener {
+                override fun onPlayerError(error: PlaybackException) {
+                    player_exoplayer!!.release()
+                    player_exoplayer = null
+                    if(original_c2_preview_Surface!!.isValid){
+                        process_camera2_exoplay_play()
+                    }else{
+                        Toast.makeText(context, "播放失败，请翻转摄像头", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            })
         }
-        player_exoplayer!!.shuffleModeEnabled = true
+
         val mediaItem = MediaItem.fromUri("content://com.wangyiheng.vcamsx.videoprovider")
 
         HLog.d(msg = "视频设置成功")
         player_exoplayer!!.setMediaItem(mediaItem)
+        player_exoplayer!!.prepare()
     }
 
 
-
     fun process_camera2_exoplay_play() {
-        if (original_c2_preview_Surfcae != null) {
-            initPlayer()
-            HLog.d(msg = "构建完成开始播放")
-            HLog.d("准备播放",videoStatus.toString())
-            if(videoStatus != null && videoStatus!!.isVideoEnable){
-                player_exoplayer!!.setVideoSurface(original_c2_preview_Surfcae)
-                player_exoplayer!!.prepare()
-                player_exoplayer!!.play()
+        if (original_c2_preview_Surface != null) {
+            mainThreadHandler!!.post{
+                initPlayer()
+                if(videoStatus != null && videoStatus!!.isVideoEnable){
+                    player_exoplayer!!.setVideoSurface(original_c2_preview_Surface)
+                    player_exoplayer!!.prepare()
+                    player_exoplayer!!.play()
+                }
             }
         }
     }
