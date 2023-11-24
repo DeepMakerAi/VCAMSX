@@ -85,7 +85,6 @@ fun HomeScreen() {
             // 使按钮宽度等于列的最大宽度
 
             if (detailAlterShow.value) {
-                val context = LocalContext.current
                 val exoPlayer = remember {
                     ExoPlayer.Builder(context).build().apply {
                         // 配置 ExoPlayer，例如设置媒体源等

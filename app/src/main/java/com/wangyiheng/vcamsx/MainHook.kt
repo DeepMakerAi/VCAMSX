@@ -5,6 +5,7 @@ import android.content.Context
 import android.hardware.camera2.CameraDevice
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import android.view.Surface
 import android.widget.Toast
 import androidx.media3.common.MediaItem
@@ -22,6 +23,7 @@ import java.util.*
 
 
 class MainHook : IXposedHookLoadPackage {
+    private val isplaying: Boolean = false
     private var videoStatus: VideoStatues? = null
     private var infoManager : InfoManager?= null
     private lateinit var dataSourceFactory: DefaultDataSource.Factory
@@ -33,7 +35,6 @@ class MainHook : IXposedHookLoadPackage {
 
     private var c2_state_callback_class: Class<*>? = null
     private var c2_state_callback: CameraDevice.StateCallback? = null
-    var mainThreadHandler: Handler? = null
     // Xposed模块中
     override fun handleLoadPackage(lpparam: XC_LoadPackage.LoadPackageParam) {
         if(lpparam.packageName == "com.wangyiheng.vcamsx"){
@@ -54,8 +55,6 @@ class MainHook : IXposedHookLoadPackage {
                         try {
                             context = applicationContext
                             initStatus()
-                            mainThreadHandler = Handler(Looper.getMainLooper())
-                            initPlayer()
                         } catch (ee: Exception) {
                             HLog.d("VCAM", "$ee")
                         }
@@ -117,14 +116,31 @@ class MainHook : IXposedHookLoadPackage {
                     if (param.args[0] != null) {
                         if(param.args[0] == c2_virtual_surface)return
                         val surfaceInfo = param.args[0].toString()
-                        HLog.d("surfaceInfo:",surfaceInfo)
                         if (!surfaceInfo.contains("Surface(name=null)")) {
-                            if(original_c2_preview_Surface ==null ){
+                            if(original_c2_preview_Surface == null ){
                                 original_c2_preview_Surface = param.args[0] as Surface
+                                if(original_c2_preview_Surface?.isValid == true) {
+                                    process_camera2_exoplay_play()
+                                    Log.d("surfaceInfo",surfaceInfo)
+                                }
                             }
                         }
-                        if(original_c2_preview_Surface?.isValid == true){
-                            process_camera2_exoplay_play()
+                    }
+                }
+
+                override fun afterHookedMethod(param: MethodHookParam?) {
+                    super.afterHookedMethod(param)
+                    if (param != null) {
+                        if (param.args[0] != null) {
+                            if(param.args[0] == c2_virtual_surface)return
+                            val surfaceInfo = param.args[0].toString()
+                            if (!surfaceInfo.contains("Surface(name=null)")) {
+                                if(!isplaying){
+                                    process_camera2_exoplay_play()
+                                }
+                                Log.d("呆瓜","cnm的日志")
+                                Log.d("surfaceInfo",surfaceInfo)
+                            }
                         }
                     }
                 }
@@ -148,28 +164,25 @@ class MainHook : IXposedHookLoadPackage {
     }
 
     fun initPlayer(){
-        if(player_exoplayer == null){
-            player_exoplayer = ExoPlayer.Builder(context!!).build()
-            dataSourceFactory = DefaultDataSource.Factory(context!!)
-            player_exoplayer!!.repeatMode = Player.REPEAT_MODE_ALL
-            if(videoStatus != null && videoStatus!!.volume){
-                player_exoplayer!!.volume = 1f
-            }else{
-                player_exoplayer!!.volume = 0f
-            }
-            player_exoplayer!!.shuffleModeEnabled = true
-            player_exoplayer!!.addListener(object : Player.Listener {
-                override fun onPlayerError(error: PlaybackException) {
-                    player_exoplayer!!.release()
-                    player_exoplayer = null
-                    if(original_c2_preview_Surface!!.isValid){
-                        process_camera2_exoplay_play()
-                    }else{
-                        Toast.makeText(context, "播放失败，请翻转摄像头", Toast.LENGTH_SHORT).show()
-                    }
-                }
-            })
+        player_exoplayer = ExoPlayer.Builder(context!!).build()
+        dataSourceFactory = DefaultDataSource.Factory(context!!)
+        player_exoplayer!!.repeatMode = Player.REPEAT_MODE_ALL
+        if(videoStatus != null && videoStatus!!.volume){
+            player_exoplayer!!.volume = 1f
+        }else{
+            player_exoplayer!!.volume = 0f
         }
+        player_exoplayer!!.shuffleModeEnabled = true
+        player_exoplayer!!.addListener(object : Player.Listener {
+            override fun onPlayerError(error: PlaybackException) {
+                player_exoplayer!!.release()
+                player_exoplayer = null
+                if(original_c2_preview_Surface!!.isValid){
+                    process_camera2_exoplay_play()
+                }
+            }
+        })
+
 
         val mediaItem = MediaItem.fromUri("content://com.wangyiheng.vcamsx.videoprovider")
 
@@ -178,16 +191,13 @@ class MainHook : IXposedHookLoadPackage {
         player_exoplayer!!.prepare()
     }
 
-
     fun process_camera2_exoplay_play() {
         if (original_c2_preview_Surface != null) {
-            mainThreadHandler!!.post{
-                initPlayer()
-                if(videoStatus != null && videoStatus!!.isVideoEnable){
-                    player_exoplayer!!.setVideoSurface(original_c2_preview_Surface)
-                    player_exoplayer!!.prepare()
-                    player_exoplayer!!.play()
-                }
+            initPlayer()
+            if(videoStatus != null && videoStatus!!.isVideoEnable){
+                player_exoplayer!!.setVideoSurface(original_c2_preview_Surface)
+                player_exoplayer!!.prepare()
+                player_exoplayer!!.play()
             }
         }
     }
