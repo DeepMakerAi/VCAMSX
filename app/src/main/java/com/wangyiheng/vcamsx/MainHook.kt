@@ -3,15 +3,14 @@ package com.wangyiheng.vcamsx
 import android.app.Application
 import android.content.Context
 import android.hardware.camera2.CameraDevice
+import android.media.MediaPlayer
+import android.net.Uri
 import android.os.Handler
-import android.os.Looper
 import android.util.Log
 import android.view.Surface
-import android.widget.Toast
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
-import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import cn.dianbobo.dbb.util.HLog
 import com.wangyiheng.vcamsx.data.models.VideoStatues
@@ -23,11 +22,11 @@ import java.util.*
 
 
 class MainHook : IXposedHookLoadPackage {
-    private val isplaying: Boolean = false
+    private var isplaying: Boolean = false
     private var videoStatus: VideoStatues? = null
     private var infoManager : InfoManager?= null
-    private lateinit var dataSourceFactory: DefaultDataSource.Factory
     private var player_exoplayer: ExoPlayer? = null
+    private var player_media:MediaPlayer? = null
     private var context: Context? = null
     private var original_c2_preview_Surface: Surface? = null
 
@@ -35,12 +34,12 @@ class MainHook : IXposedHookLoadPackage {
 
     private var c2_state_callback_class: Class<*>? = null
     private var c2_state_callback: CameraDevice.StateCallback? = null
+    var playtestcount = 0
     // Xposed模块中
     override fun handleLoadPackage(lpparam: XC_LoadPackage.LoadPackageParam) {
         if(lpparam.packageName == "com.wangyiheng.vcamsx"){
             return
         }
-
 
         //获取context
         XposedHelpers.findAndHookMethod(
@@ -90,7 +89,6 @@ class MainHook : IXposedHookLoadPackage {
     fun initStatus(){
         infoManager = InfoManager(context!!)
         videoStatus = infoManager!!.getVideoStatus()
-        HLog.d("info的数据：", infoManager!!.getVideoStatus().toString())
     }
 
     private fun process_camera2_init(c2StateCallbackClass: Class<Any>?, lpparam: XC_LoadPackage.LoadPackageParam) {
@@ -120,8 +118,10 @@ class MainHook : IXposedHookLoadPackage {
                             if(original_c2_preview_Surface == null ){
                                 original_c2_preview_Surface = param.args[0] as Surface
                                 if(original_c2_preview_Surface?.isValid == true) {
-                                    process_camera2_exoplay_play()
+                                    Log.d("vcamsx","开始播放")
                                     Log.d("surfaceInfo",surfaceInfo)
+                                    playtestcount = 0
+                                    process_camera_play()
                                 }
                             }
                         }
@@ -136,10 +136,8 @@ class MainHook : IXposedHookLoadPackage {
                             val surfaceInfo = param.args[0].toString()
                             if (!surfaceInfo.contains("Surface(name=null)")) {
                                 if(!isplaying){
-                                    process_camera2_exoplay_play()
+                                    process_camera_play()
                                 }
-                                Log.d("呆瓜","cnm的日志")
-                                Log.d("surfaceInfo",surfaceInfo)
                             }
                         }
                     }
@@ -165,7 +163,6 @@ class MainHook : IXposedHookLoadPackage {
 
     fun initPlayer(){
         player_exoplayer = ExoPlayer.Builder(context!!).build()
-        dataSourceFactory = DefaultDataSource.Factory(context!!)
         player_exoplayer!!.repeatMode = Player.REPEAT_MODE_ALL
         if(videoStatus != null && videoStatus!!.volume){
             player_exoplayer!!.volume = 1f
@@ -174,11 +171,16 @@ class MainHook : IXposedHookLoadPackage {
         }
         player_exoplayer!!.shuffleModeEnabled = true
         player_exoplayer!!.addListener(object : Player.Listener {
+            override fun onIsPlayingChanged(isPlaying: Boolean) {
+                super.onIsPlayingChanged(isPlaying)
+                isplaying = true
+            }
             override fun onPlayerError(error: PlaybackException) {
                 player_exoplayer!!.release()
                 player_exoplayer = null
-                if(original_c2_preview_Surface!!.isValid){
-                    process_camera2_exoplay_play()
+                if(original_c2_preview_Surface!!.isValid && playtestcount < 5){
+                    process_camera_play()
+                    playtestcount++
                 }
             }
         })
@@ -186,18 +188,46 @@ class MainHook : IXposedHookLoadPackage {
 
         val mediaItem = MediaItem.fromUri("content://com.wangyiheng.vcamsx.videoprovider")
 
-        HLog.d(msg = "视频设置成功")
         player_exoplayer!!.setMediaItem(mediaItem)
         player_exoplayer!!.prepare()
     }
 
-    fun process_camera2_exoplay_play() {
+    fun process_camera_play() {
+        if(videoStatus != null && videoStatus!!.videoPlayer == 1){
+            exoplay_play()
+        }else{
+            media_play()
+        }
+    }
+
+    fun exoplay_play(){
         if (original_c2_preview_Surface != null) {
             initPlayer()
             if(videoStatus != null && videoStatus!!.isVideoEnable){
                 player_exoplayer!!.setVideoSurface(original_c2_preview_Surface)
                 player_exoplayer!!.prepare()
                 player_exoplayer!!.play()
+            }
+        }
+    }
+
+    private fun media_play() {
+        if (original_c2_preview_Surface != null) {
+            player_media = MediaPlayer()
+            player_media!!.isLooping = true
+            player_media!!.setSurface(original_c2_preview_Surface)
+
+            player_media!!.reset()
+            val videoPathUri = Uri.parse("content://com.wangyiheng.vcamsx.videoprovider")
+            player_media!!.setVolume(0f, 0f)
+            player_media!!.setDataSource(context!!, videoPathUri)
+
+            player_media!!.prepare()
+
+            // 设置视频准备好的监听器
+            player_media!!.setOnPreparedListener {
+                player_media!!.start()
+                isplaying = true
             }
         }
     }

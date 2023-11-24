@@ -17,9 +17,9 @@ import java.io.File
 
 class HomeController: KoinComponent {
 
-    val context by inject<Context>()
     val isVideoEnabled  = mutableStateOf(false)
     val isVolumeEnabled = mutableStateOf(false)
+    val videoPlayer = mutableStateOf(1)
     val infoManager by inject<InfoManager>()
 
     fun init(){
@@ -40,13 +40,20 @@ class HomeController: KoinComponent {
 
     fun saveState() {
         infoManager.removeVideoStatus()
-        infoManager.saveVideoStatus(VideoStatues(isVideoEnabled.value,isVolumeEnabled.value))
+        infoManager.saveVideoStatus(
+            VideoStatues(
+                isVideoEnabled.value,
+                isVolumeEnabled.value,
+                videoPlayer.value
+            )
+        )
     }
 
     fun getState(){
         infoManager.getVideoStatus()?.let {
             isVideoEnabled.value = it.isVideoEnable
             isVolumeEnabled.value = it.volume
+            videoPlayer.value = it.videoPlayer
         }
     }
 }

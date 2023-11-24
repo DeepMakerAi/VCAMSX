@@ -172,6 +172,20 @@ fun HomeScreen() {
                     }
                 )
             }
+            Row(
+                verticalAlignment = Alignment.CenterVertically, // 对齐文本和开关
+                modifier = Modifier.fillMaxWidth() // 拉伸以匹配按钮宽度
+            ) {
+                Text("备选播放器:", modifier = Modifier.weight(1f)) // 权重使文本占据大部分空间
+                Switch(
+                    checked = (homeController.videoPlayer.value == 2),
+                    onCheckedChange = {
+                        homeController.videoPlayer.value = if(it) 2 else 1
+                        homeController.saveState()
+                        Toast.makeText(context, if (it) "备选播放器打开" else "备选播放器关闭", Toast.LENGTH_SHORT).show()
+                    }
+                )
+            }
         }
     }
 }
