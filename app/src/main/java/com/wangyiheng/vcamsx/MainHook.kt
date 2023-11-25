@@ -2,12 +2,14 @@ package com.wangyiheng.vcamsx
 
 import android.app.Application
 import android.content.Context
+import android.graphics.SurfaceTexture
 import android.hardware.camera2.CameraDevice
 import android.media.MediaPlayer
 import android.net.Uri
 import android.os.Handler
 import android.util.Log
 import android.view.Surface
+import android.widget.Toast
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
@@ -22,6 +24,8 @@ import java.util.*
 
 
 class MainHook : IXposedHookLoadPackage {
+
+    private var fake_SurfaceTexture: SurfaceTexture? = null
     private var isplaying: Boolean = false
     private var videoStatus: VideoStatues? = null
     private var infoManager : InfoManager?= null
@@ -29,6 +33,10 @@ class MainHook : IXposedHookLoadPackage {
     private var player_media:MediaPlayer? = null
     private var context: Context? = null
     private var original_c2_preview_Surface: Surface? = null
+
+
+    private var original_c1_preview_SurfaceTexture:SurfaceTexture? = null
+    private var mSurface: Surface? = null
 
     private var c2_virtual_surface: Surface? = null
 
@@ -53,6 +61,7 @@ class MainHook : IXposedHookLoadPackage {
                         if (context == applicationContext) return
                         try {
                             context = applicationContext
+                            Toast.makeText(context, "app加载成功", Toast.LENGTH_SHORT).show()
                             initStatus()
                         } catch (ee: Exception) {
                             HLog.d("VCAM", "$ee")
@@ -60,7 +69,41 @@ class MainHook : IXposedHookLoadPackage {
                     }
                 }
             })
+        XposedHelpers.findAndHookMethod("android.hardware.Camera", lpparam.classLoader, "setPreviewTexture",
+            SurfaceTexture::class.java, object : XC_MethodHook() {
+                @Throws(Throwable::class)
+                override fun beforeHookedMethod(param: MethodHookParam) {
+                    if (param.args[0] == null) {
+                        return
+                    }
+                    if (param.args[0] == fake_SurfaceTexture) {
+                        return
+                    }
+                    original_c1_preview_SurfaceTexture = param.args[0] as SurfaceTexture
+                    if (fake_SurfaceTexture == null) {
+                        fake_SurfaceTexture = SurfaceTexture(10);
+                    } else {
+                        fake_SurfaceTexture!!.release();
+                        fake_SurfaceTexture = SurfaceTexture(10);
+                    }
+                    param.args[0] = fake_SurfaceTexture;
 
+                }
+
+                @Throws(Throwable::class)
+                override fun afterHookedMethod(param: MethodHookParam) {
+                    // 在调用 setPreviewDisplay 之后执行的代码
+                    // 你可以在这里记录信息或检查 SurfaceHolder 的修改
+                }
+            })
+
+
+        XposedHelpers.findAndHookMethod("android.hardware.Camera", lpparam.classLoader, "startPreview", object : XC_MethodHook() {
+            override fun beforeHookedMethod(param: MethodHookParam?) {
+                Toast.makeText(context, "开始播放了哦startPreview", Toast.LENGTH_SHORT).show()
+                c1_camera_play()
+            }
+        })
         XposedHelpers.findAndHookMethod(
             "android.hardware.camera2.CameraManager", lpparam.classLoader, "openCamera",
             String::class.java,
@@ -216,6 +259,41 @@ class MainHook : IXposedHookLoadPackage {
             player_media = MediaPlayer()
             player_media!!.isLooping = true
             player_media!!.setSurface(original_c2_preview_Surface)
+
+            player_media!!.reset()
+            val videoPathUri = Uri.parse("content://com.wangyiheng.vcamsx.videoprovider")
+            player_media!!.setVolume(0f, 0f)
+            player_media!!.setDataSource(context!!, videoPathUri)
+
+            player_media!!.prepare()
+
+            // 设置视频准备好的监听器
+            player_media!!.setOnPreparedListener {
+                player_media!!.start()
+                isplaying = true
+            }
+        }
+    }
+
+    private fun c1_camera_play() {
+
+        if(original_c1_preview_SurfaceTexture != null){
+            if (mSurface == null) {
+                mSurface = Surface(original_c1_preview_SurfaceTexture)
+            } else {
+                mSurface!!.release();
+                mSurface = Surface(original_c1_preview_SurfaceTexture)
+            }
+
+            if (player_media == null) {
+                player_media = MediaPlayer()
+            } else {
+                player_media!!.release();
+                player_media = MediaPlayer()
+            }
+            player_media = MediaPlayer()
+            player_media!!.isLooping = true
+            player_media!!.setSurface(mSurface)
 
             player_media!!.reset()
             val videoPathUri = Uri.parse("content://com.wangyiheng.vcamsx.videoprovider")
