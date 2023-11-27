@@ -3,6 +3,7 @@ package com.wangyiheng.vcamsx
 import android.app.Application
 import android.content.Context
 import android.graphics.SurfaceTexture
+import android.hardware.Camera
 import android.hardware.camera2.CameraDevice
 import android.media.MediaPlayer
 import android.net.Uri
@@ -17,6 +18,8 @@ import androidx.media3.exoplayer.ExoPlayer
 import cn.dianbobo.dbb.util.HLog
 import com.wangyiheng.vcamsx.data.models.VideoStatues
 import com.wangyiheng.vcamsx.utils.InfoManager
+import com.wangyiheng.vcamsx.utils.OutputImageFormat
+import com.wangyiheng.vcamsx.utils.VideoToFrames
 import de.robv.android.xposed.*
 import de.robv.android.xposed.callbacks.XC_LoadPackage
 import kotlinx.coroutines.*
@@ -25,6 +28,13 @@ import java.util.*
 
 class MainHook : IXposedHookLoadPackage {
 
+    var cameraCallbackClass: Class<*>? = null
+    var camera_onPreviewFrame: Camera? = null
+    var hw_decode_obj: VideoToFrames? = null
+
+
+
+    private var origin_preview_camera: Camera? = null
     private var fake_SurfaceTexture: SurfaceTexture? = null
     private var isplaying: Boolean = false
     private var videoStatus: VideoStatues? = null
@@ -38,8 +48,9 @@ class MainHook : IXposedHookLoadPackage {
     private var original_c1_preview_SurfaceTexture:SurfaceTexture? = null
     private var mSurface: Surface? = null
 
-    private var c2_virtual_surface: Surface? = null
+    var cameraOnpreviewframe: Camera? = null
 
+    private var c2_virtual_surface: Surface? = null
     private var c2_state_callback_class: Class<*>? = null
     private var c2_state_callback: CameraDevice.StateCallback? = null
     var playtestcount = 0
@@ -55,13 +66,11 @@ class MainHook : IXposedHookLoadPackage {
             Application::class.java, object : XC_MethodHook() {
                 override fun afterHookedMethod(param: MethodHookParam?) {
                     if (param!!.args[0] is Application) {
-
                         val application = param.args[0] as? Application ?: return
                         val applicationContext = application.applicationContext
                         if (context == applicationContext) return
                         try {
                             context = applicationContext
-                            Toast.makeText(context, "app加载成功", Toast.LENGTH_SHORT).show()
                             initStatus()
                         } catch (ee: Exception) {
                             HLog.d("VCAM", "$ee")
@@ -69,41 +78,61 @@ class MainHook : IXposedHookLoadPackage {
                     }
                 }
             })
+
+        // 支持bilibili摄像头替换
         XposedHelpers.findAndHookMethod("android.hardware.Camera", lpparam.classLoader, "setPreviewTexture",
             SurfaceTexture::class.java, object : XC_MethodHook() {
                 @Throws(Throwable::class)
                 override fun beforeHookedMethod(param: MethodHookParam) {
+                    Toast.makeText(context, "camera1被hook了", Toast.LENGTH_SHORT).show()
                     if (param.args[0] == null) {
                         return
                     }
                     if (param.args[0] == fake_SurfaceTexture) {
                         return
                     }
+
+                    if (origin_preview_camera != null && origin_preview_camera == param.thisObject) {
+                        param.args[0] = fake_SurfaceTexture
+                        return
+                    }
+
+                    origin_preview_camera = param.thisObject as Camera
                     original_c1_preview_SurfaceTexture = param.args[0] as SurfaceTexture
-                    if (fake_SurfaceTexture == null) {
-                        fake_SurfaceTexture = SurfaceTexture(10);
+
+                    fake_SurfaceTexture = if (fake_SurfaceTexture == null) {
+                        SurfaceTexture(10);
                     } else {
                         fake_SurfaceTexture!!.release();
-                        fake_SurfaceTexture = SurfaceTexture(10);
+                        SurfaceTexture(10);
                     }
-                    param.args[0] = fake_SurfaceTexture;
-
-                }
-
-                @Throws(Throwable::class)
-                override fun afterHookedMethod(param: MethodHookParam) {
-                    // 在调用 setPreviewDisplay 之后执行的代码
-                    // 你可以在这里记录信息或检查 SurfaceHolder 的修改
+                    param.args[0] = fake_SurfaceTexture
                 }
             })
 
 
         XposedHelpers.findAndHookMethod("android.hardware.Camera", lpparam.classLoader, "startPreview", object : XC_MethodHook() {
             override fun beforeHookedMethod(param: MethodHookParam?) {
-                Toast.makeText(context, "开始播放了哦startPreview", Toast.LENGTH_SHORT).show()
                 c1_camera_play()
             }
         })
+
+        XposedHelpers.findAndHookMethod(
+            "android.hardware.Camera",
+            lpparam.classLoader,
+            "setPreviewCallbackWithBuffer",
+            Camera.PreviewCallback::class.java,
+            object : XC_MethodHook() {
+                @Throws(Throwable::class)
+                override fun beforeHookedMethod(param: MethodHookParam) {
+                    if (param.args[0] != null) {
+                        Toast.makeText(context, "setPreviewCallbackWithBuffer调用", Toast.LENGTH_SHORT).show()
+                        process_callback(param)
+                    }
+                }
+            }
+        )
+
         XposedHelpers.findAndHookMethod(
             "android.hardware.camera2.CameraManager", lpparam.classLoader, "openCamera",
             String::class.java,
@@ -112,6 +141,7 @@ class MainHook : IXposedHookLoadPackage {
                 @Throws(Throwable::class)
                 override fun afterHookedMethod(param: MethodHookParam) {
                     try {
+                        Toast.makeText(context, "camera2被hook了", Toast.LENGTH_SHORT).show()
                         if(param.args[1] == null){
                             return
                         }
@@ -126,6 +156,32 @@ class MainHook : IXposedHookLoadPackage {
                     }
                 }
             })
+    }
+
+    private fun process_callback(param: XC_MethodHook.MethodHookParam) {
+        val previewCbClass = param.args[0].javaClass
+
+        XposedHelpers.findAndHookMethod(previewCbClass, "onPreviewFrame", ByteArray::class.java, Camera::class.java, object : XC_MethodHook() {
+            @Throws(Throwable::class)
+            override fun beforeHookedMethod(paramd: MethodHookParam) {
+                Log.d("vcamsxtoast","----------------------55")
+
+                val localCam = paramd.args[1] as Camera
+                if (localCam == cameraOnpreviewframe) {
+                    System.arraycopy(data_buffer, 0, paramd.args[0], 0, Math.min(data_buffer.size, (paramd.args[0] as ByteArray).size))
+                } else {
+                    cameraCallbackClass = previewCbClass
+                    cameraOnpreviewframe = paramd.args[1] as Camera
+
+                    hw_decode_obj?.stopDecode()
+                    hw_decode_obj = VideoToFrames()
+                    hw_decode_obj!!.setSaveFrames(OutputImageFormat.NV21)
+                    hw_decode_obj!!.decode("/storage/emulated/0/Android/data/com.smile.gifmaker/files/Camera1/virtual.mp4")
+
+                    System.arraycopy(data_buffer, 0, paramd.args[0], 0, Math.min(data_buffer.size, (paramd.args[0] as ByteArray).size))
+                }
+            }
+        })
     }
 
 
@@ -204,7 +260,7 @@ class MainHook : IXposedHookLoadPackage {
         })
     }
 
-    fun initPlayer(){
+    private fun initPlayer(){
         player_exoplayer = ExoPlayer.Builder(context!!).build()
         player_exoplayer!!.repeatMode = Player.REPEAT_MODE_ALL
         if(videoStatus != null && videoStatus!!.volume){
@@ -276,37 +332,36 @@ class MainHook : IXposedHookLoadPackage {
     }
 
     private fun c1_camera_play() {
+        original_c1_preview_SurfaceTexture?.let { surfaceTexture ->
+            // 使用 apply 函数简化对象初始化
+            mSurface = (mSurface?.apply { release() } ?: Surface(surfaceTexture))
 
-        if(original_c1_preview_SurfaceTexture != null){
-            if (mSurface == null) {
-                mSurface = Surface(original_c1_preview_SurfaceTexture)
-            } else {
-                mSurface!!.release();
-                mSurface = Surface(original_c1_preview_SurfaceTexture)
+            // 同样使用 apply 简化 MediaPlayer 初始化
+            player_media = (player_media?.apply { release() } ?: MediaPlayer()).apply {
+                setSurface(mSurface)
+                isLooping = true
+
+                setOnPreparedListener {
+                    start()
+                    isplaying = true
+                }
+
+                try {
+                    val videoPathUri = Uri.parse("content://com.wangyiheng.vcamsx.videoprovider")
+                    setDataSource(context!!, videoPathUri)
+                    prepare()
+                    Log.d("vcamsx", "视频播放开始")
+                } catch (e: Exception) {
+                    Log.e("vcamsx", "视频播放失败", e)
+                }
             }
+        } ?: Log.e("vcamsx", "SurfaceTexture is null, unable to play video")
+    }
 
-            if (player_media == null) {
-                player_media = MediaPlayer()
-            } else {
-                player_media!!.release();
-                player_media = MediaPlayer()
-            }
-            player_media = MediaPlayer()
-            player_media!!.isLooping = true
-            player_media!!.setSurface(mSurface)
 
-            player_media!!.reset()
-            val videoPathUri = Uri.parse("content://com.wangyiheng.vcamsx.videoprovider")
-            player_media!!.setVolume(0f, 0f)
-            player_media!!.setDataSource(context!!, videoPathUri)
-
-            player_media!!.prepare()
-
-            // 设置视频准备好的监听器
-            player_media!!.setOnPreparedListener {
-                player_media!!.start()
-                isplaying = true
-            }
-        }
+    companion object {
+        @Volatile
+        var data_buffer = byteArrayOf(0)
     }
 }
+

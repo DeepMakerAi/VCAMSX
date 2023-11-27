@@ -100,7 +100,7 @@ fun HomeScreen() {
                         exoPlayer.release() // 释放播放器资源
                     }
                 ) {
-                    Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                    Column(modifier = Modifier.fillMaxSize(),verticalArrangement = Arrangement.Center) {
                         AndroidView(
                             factory = { context ->
                                 PlayerView(context).apply {
@@ -109,18 +109,16 @@ fun HomeScreen() {
                             },
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .aspectRatio(16f / 9f) // 根据视频的比例调整
+                                .aspectRatio(16f / 9f)
                         )
-
-                        Spacer(modifier = Modifier.height(16.dp))
-
-//                        Button(onClick = {
-//                            detailAlterShow.value = false
-//                            exoPlayer.release() // 关闭时释放播放器资源
-//                        }) {
-//                            Text("关闭")
-//                        }
+                        Button(onClick = {
+                            detailAlterShow.value = false
+                            exoPlayer.release() // 关闭时释放播放器资源
+                        },modifier = Modifier.fillMaxWidth()) {
+                            Text("关闭")
+                        }
                     }
+
                 }
             }
 
