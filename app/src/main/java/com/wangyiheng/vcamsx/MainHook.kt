@@ -1,5 +1,6 @@
 package com.wangyiheng.vcamsx
 
+import android.annotation.SuppressLint
 import android.app.Application
 import android.content.Context
 import android.graphics.SurfaceTexture
@@ -39,8 +40,8 @@ class MainHook : IXposedHookLoadPackage {
     private var isplaying: Boolean = false
     private var videoStatus: VideoStatues? = null
     private var infoManager : InfoManager?= null
-    private var player_exoplayer: ExoPlayer? = null
-    private var player_media:MediaPlayer? = null
+//    private var player_exoplayer: ExoPlayer? = null
+//    private var player_media:MediaPlayer? = null
     private var context: Context? = null
     private var original_c2_preview_Surface: Surface? = null
 
@@ -84,7 +85,7 @@ class MainHook : IXposedHookLoadPackage {
             SurfaceTexture::class.java, object : XC_MethodHook() {
                 @Throws(Throwable::class)
                 override fun beforeHookedMethod(param: MethodHookParam) {
-                    Toast.makeText(context, "camera1被hook了", Toast.LENGTH_SHORT).show()
+//                    Toast.makeText(context, "camera1被hook了", Toast.LENGTH_SHORT).show()
                     if (param.args[0] == null) {
                         return
                     }
@@ -141,7 +142,7 @@ class MainHook : IXposedHookLoadPackage {
                 @Throws(Throwable::class)
                 override fun afterHookedMethod(param: MethodHookParam) {
                     try {
-                        Toast.makeText(context, "camera2被hook了", Toast.LENGTH_SHORT).show()
+//                        Toast.makeText(context, "camera2被hook了", Toast.LENGTH_SHORT).show()
                         if(param.args[1] == null){
                             return
                         }
@@ -194,11 +195,6 @@ class MainHook : IXposedHookLoadPackage {
         XposedHelpers.findAndHookMethod(c2StateCallbackClass, "onOpened", CameraDevice::class.java, object : XC_MethodHook() {
             @Throws(Throwable::class)
             override fun beforeHookedMethod(param: MethodHookParam) {
-                if(c2_virtual_surface!=null){
-                    player_exoplayer!!.stop()
-                    c2_virtual_surface!!.release()
-                    c2_virtual_surface = null
-                }
                 original_c2_preview_Surface = null
             }
         })
@@ -217,8 +213,6 @@ class MainHook : IXposedHookLoadPackage {
                             if(original_c2_preview_Surface == null ){
                                 original_c2_preview_Surface = param.args[0] as Surface
                                 if(original_c2_preview_Surface?.isValid == true) {
-                                    Log.d("vcamsx","开始播放")
-                                    Log.d("surfaceInfo",surfaceInfo)
                                     playtestcount = 0
                                     process_camera_play()
                                 }
@@ -253,30 +247,27 @@ class MainHook : IXposedHookLoadPackage {
         XposedHelpers.findAndHookMethod(c2StateCallbackClass, "onDisconnected",CameraDevice::class.java, object : XC_MethodHook() {
             @Throws(Throwable::class)
             override fun beforeHookedMethod(param: MethodHookParam) {
-                HLog.d(msg="APP断开")
-                player_exoplayer!!.stop()
                 original_c2_preview_Surface = null
             }
         })
     }
 
-    private fun initPlayer(){
-        player_exoplayer = ExoPlayer.Builder(context!!).build()
-        player_exoplayer!!.repeatMode = Player.REPEAT_MODE_ALL
+    private fun initPlayer(): ExoPlayer {
+        val player_exoplayer = ExoPlayer.Builder(context!!).build()
+        player_exoplayer.repeatMode = Player.REPEAT_MODE_ALL
         if(videoStatus != null && videoStatus!!.volume){
-            player_exoplayer!!.volume = 1f
+            player_exoplayer.volume = 1f
         }else{
-            player_exoplayer!!.volume = 0f
+            player_exoplayer.volume = 0f
         }
-        player_exoplayer!!.shuffleModeEnabled = true
-        player_exoplayer!!.addListener(object : Player.Listener {
+        player_exoplayer.shuffleModeEnabled = true
+        player_exoplayer.addListener(object : Player.Listener {
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 super.onIsPlayingChanged(isPlaying)
                 isplaying = true
             }
             override fun onPlayerError(error: PlaybackException) {
-                player_exoplayer!!.release()
-                player_exoplayer = null
+                player_exoplayer.release()
                 if(original_c2_preview_Surface!!.isValid && playtestcount < 5){
                     process_camera_play()
                     playtestcount++
@@ -287,8 +278,9 @@ class MainHook : IXposedHookLoadPackage {
 
         val mediaItem = MediaItem.fromUri("content://com.wangyiheng.vcamsx.videoprovider")
 
-        player_exoplayer!!.setMediaItem(mediaItem)
-        player_exoplayer!!.prepare()
+        player_exoplayer.setMediaItem(mediaItem)
+        player_exoplayer.prepare()
+        return player_exoplayer
     }
 
     fun process_camera_play() {
@@ -301,43 +293,42 @@ class MainHook : IXposedHookLoadPackage {
 
     fun exoplay_play(){
         if (original_c2_preview_Surface != null) {
-            initPlayer()
+            val player_exoplayer =   initPlayer()
             if(videoStatus != null && videoStatus!!.isVideoEnable){
-                player_exoplayer!!.setVideoSurface(original_c2_preview_Surface)
-                player_exoplayer!!.prepare()
-                player_exoplayer!!.play()
+                player_exoplayer.setVideoSurface(original_c2_preview_Surface)
+                player_exoplayer.prepare()
+                player_exoplayer.play()
             }
         }
     }
 
     private fun media_play() {
         if (original_c2_preview_Surface != null) {
-            player_media = MediaPlayer()
-            player_media!!.isLooping = true
-            player_media!!.setSurface(original_c2_preview_Surface)
+            val player_media = MediaPlayer()
+            player_media.isLooping = true
+            player_media.setSurface(original_c2_preview_Surface)
 
-            player_media!!.reset()
+            player_media.reset()
             val videoPathUri = Uri.parse("content://com.wangyiheng.vcamsx.videoprovider")
-            player_media!!.setVolume(0f, 0f)
-            player_media!!.setDataSource(context!!, videoPathUri)
+            player_media.setVolume(0f, 0f)
+            player_media.setDataSource(context!!, videoPathUri)
 
-            player_media!!.prepare()
+            player_media.prepare()
 
             // 设置视频准备好的监听器
-            player_media!!.setOnPreparedListener {
-                player_media!!.start()
+            player_media.setOnPreparedListener {
+                player_media.start()
                 isplaying = true
             }
         }
     }
 
+    @SuppressLint("Recycle")
     private fun c1_camera_play() {
         original_c1_preview_SurfaceTexture?.let { surfaceTexture ->
             // 使用 apply 函数简化对象初始化
             mSurface = (mSurface?.apply { release() } ?: Surface(surfaceTexture))
-
-            // 同样使用 apply 简化 MediaPlayer 初始化
-            player_media = (player_media?.apply { release() } ?: MediaPlayer()).apply {
+            MediaPlayer().apply {
                 setSurface(mSurface)
                 isLooping = true
 
