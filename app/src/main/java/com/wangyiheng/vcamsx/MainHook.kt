@@ -75,6 +75,7 @@ class MainHook : IXposedHookLoadPackage {
                         try {
                             context = applicationContext
                             initStatus()
+                            initIjkPlayer()
                         } catch (ee: Exception) {
                             HLog.d("VCAM", "$ee")
                         }
@@ -283,6 +284,7 @@ class MainHook : IXposedHookLoadPackage {
             @Throws(Throwable::class)
             override fun beforeHookedMethod(param: MethodHookParam) {
                 original_c2_preview_Surface = null
+                Log.d("vcamsx","摄像头掉了")
             }
         })
     }
@@ -300,25 +302,30 @@ class MainHook : IXposedHookLoadPackage {
 
     }
     fun initIjkPlayer(){
-        ijkMediaPlayer = MediaPlayerManager.acquirePlayer()
-        Log.d("vcamsx", "ijkMediaPlayer的id: " + System.identityHashCode(ijkMediaPlayer!!))
-        // 设置解码方式为软解码
-        ijkMediaPlayer!!.setOption(IjkMediaPlayer.OPT_CATEGORY_PLAYER, "mediacodec", 0)
-        ijkMediaPlayer!!.setOnPreparedListener {
-            Log.d("vcamsx","视频准备好了")
-            ijkMediaPlayer!!.setVolume(0F, 0F) // 设置音量为0
-            ijkMediaPlayer!!.start()
+        if(ijkMediaPlayer == null){
+            ijkMediaPlayer = MediaPlayerManager.acquirePlayer()
+            Log.d("vcamsx", "ijkMediaPlayer的id: " + System.identityHashCode(ijkMediaPlayer!!))
+            // 设置解码方式为软解码
+            ijkMediaPlayer!!.setOption(IjkMediaPlayer.OPT_CATEGORY_PLAYER, "mediacodec", 0)
+            ijkMediaPlayer!!.setOnPreparedListener {
+                Log.d("vcamsx","视频准备好了")
+                ijkMediaPlayer!!.setVolume(0F, 0F)
+                ijkMediaPlayer!!.isLooping= true
+                ijkMediaPlayer!!.start()
+            }
+            ijkMediaPlayer!!.setOnCompletionListener {
+                playNextVideo()
+            }
+            ijkMediaPlayer!!.setOnErrorListener { mp, what, extra ->
+                Log.d("vcamsx","报错$what,额外信息：$extra")
+                // 当发生播放错误时调用此方法
+                false // 返回true表示已处理错误，返回false表示未处理错误
+            }
+            Log.d("vcamsx","这里运行了么")
+            val videoUrl ="content://com.wangyiheng.vcamsx.videoprovider"
+            ijkMediaPlayer!!.setDataSource(context, Uri.parse(videoUrl))
+            ijkMediaPlayer!!.prepareAsync()
         }
-        ijkMediaPlayer!!.setOnCompletionListener {
-            playNextVideo()
-        }
-        ijkMediaPlayer!!.setOnErrorListener { mp, what, extra ->
-            Log.d("vcamsx","报错$what,额外信息：$extra")
-            // 当发生播放错误时调用此方法
-            false // 返回true表示已处理错误，返回false表示未处理错误
-        }
-        Log.d("vcamsx","这里运行了么")
-
     }
 
     private fun playNextVideo() {
@@ -338,15 +345,19 @@ class MainHook : IXposedHookLoadPackage {
     fun ijkplay_play(){
         try {
             if (original_c2_preview_Surface != null ) {
-
                 initIjkPlayer()
-                Log.d("vcamsx","视频准备")
-                Log.d("vcamsx", "ijkMediaPlayer的id: " + System.identityHashCode(ijkMediaPlayer!!))
-                val videoUrl ="content://com.wangyiheng.vcamsx.videoprovider"
-                ijkMediaPlayer!!.setDataSource(context, Uri.parse(videoUrl))
-                ijkMediaPlayer!!.setSurface(original_c2_preview_Surface)
+                initStatus()
+                if(videoStatus != null && videoStatus!!.isVideoEnable){
+                    if(videoStatus!!.volume){
+                        ijkMediaPlayer?.setVolume(1F, 1F)
+                    }else{
+                        ijkMediaPlayer?.setVolume(0F, 0F)
+                    }
+                    ijkMediaPlayer!!.setSurface(original_c2_preview_Surface)
+                }else{
+                    ijkMediaPlayer?.setVolume(0F, 0F)
+                }
 
-                ijkMediaPlayer!!.prepareAsync()
             }
         } catch (e: Exception) {
             e.printStackTrace()
