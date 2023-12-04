@@ -13,7 +13,7 @@ android {
         //noinspection EditedTargetSdkVersion
         targetSdk = 34
         versionCode = 1
-        versionName = "1.0"
+        versionName = "1.0.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -115,4 +115,13 @@ dependencies {
     implementation ("com.crossbowffs.remotepreferences:remotepreferences:0.8")
 
     implementation ("com.google.code.gson:gson:2.8.8")
+
+    implementation ("tv.danmaku.ijk.media:ijkplayer-java:0.8.8")
+    implementation ("tv.danmaku.ijk.media:ijkplayer-armv7a:0.8.8")
+
+
+    implementation ("tv.danmaku.ijk.media:ijkplayer-armv5:0.8.8")
+    implementation ("tv.danmaku.ijk.media:ijkplayer-arm64:0.8.8")
+    implementation ("tv.danmaku.ijk.media:ijkplayer-x86:0.8.8")
+    implementation ("tv.danmaku.ijk.media:ijkplayer-x86_64:0.8.8")
 }

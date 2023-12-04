@@ -6,6 +6,7 @@ import android.content.Context
 import android.graphics.SurfaceTexture
 import android.hardware.Camera
 import android.hardware.camera2.CameraDevice
+import android.hardware.camera2.CaptureRequest
 import android.media.MediaPlayer
 import android.net.Uri
 import android.os.Handler
@@ -19,32 +20,32 @@ import androidx.media3.exoplayer.ExoPlayer
 import cn.dianbobo.dbb.util.HLog
 import com.wangyiheng.vcamsx.data.models.VideoStatues
 import com.wangyiheng.vcamsx.utils.InfoManager
+import com.wangyiheng.vcamsx.utils.MediaPlayerManager
 import com.wangyiheng.vcamsx.utils.OutputImageFormat
 import com.wangyiheng.vcamsx.utils.VideoToFrames
 import de.robv.android.xposed.*
 import de.robv.android.xposed.callbacks.XC_LoadPackage
 import kotlinx.coroutines.*
+import tv.danmaku.ijk.media.player.IjkMediaPlayer
 import java.util.*
 
 
 class MainHook : IXposedHookLoadPackage {
 
+    private var c2_builder: CaptureRequest.Builder? = null
+    val TAG = "vcamsx"
     var cameraCallbackClass: Class<*>? = null
-    var camera_onPreviewFrame: Camera? = null
     var hw_decode_obj: VideoToFrames? = null
 
-
+    private var ijkMediaPlayer: IjkMediaPlayer? = null
 
     private var origin_preview_camera: Camera? = null
     private var fake_SurfaceTexture: SurfaceTexture? = null
     private var isplaying: Boolean = false
     private var videoStatus: VideoStatues? = null
     private var infoManager : InfoManager?= null
-//    private var player_exoplayer: ExoPlayer? = null
-//    private var player_media:MediaPlayer? = null
     private var context: Context? = null
     private var original_c2_preview_Surface: Surface? = null
-
 
     private var original_c1_preview_SurfaceTexture:SurfaceTexture? = null
     private var mSurface: Surface? = null
@@ -54,6 +55,7 @@ class MainHook : IXposedHookLoadPackage {
     private var c2_virtual_surface: Surface? = null
     private var c2_state_callback_class: Class<*>? = null
     private var c2_state_callback: CameraDevice.StateCallback? = null
+
     var playtestcount = 0
     // Xposed模块中
     override fun handleLoadPackage(lpparam: XC_LoadPackage.LoadPackageParam) {
@@ -144,12 +146,17 @@ class MainHook : IXposedHookLoadPackage {
                     try {
 //                        Toast.makeText(context, "camera2被hook了", Toast.LENGTH_SHORT).show()
                         if(param.args[1] == null){
+
                             return
                         }
                         if(param.args[1] == c2_state_callback){
                             return
                         }
+
+                        Log.d(TAG,"c2_state_callback："+c2_state_callback.toString())
+                        Log.d(TAG,"CameraDevice.StateCallback"+(param.args[1] as CameraDevice.StateCallback).toString())
                         c2_state_callback = param.args[1] as CameraDevice.StateCallback
+
                         c2_state_callback_class = param.args[1]?.javaClass
                         process_camera2_init(c2_state_callback_class as Class<Any>?,lpparam)
                     }catch (e:Exception){
@@ -165,7 +172,6 @@ class MainHook : IXposedHookLoadPackage {
         XposedHelpers.findAndHookMethod(previewCbClass, "onPreviewFrame", ByteArray::class.java, Camera::class.java, object : XC_MethodHook() {
             @Throws(Throwable::class)
             override fun beforeHookedMethod(paramd: MethodHookParam) {
-                Log.d("vcamsxtoast","----------------------55")
 
                 val localCam = paramd.args[1] as Camera
                 if (localCam == cameraOnpreviewframe) {
@@ -192,10 +198,18 @@ class MainHook : IXposedHookLoadPackage {
     }
 
     private fun process_camera2_init(c2StateCallbackClass: Class<Any>?, lpparam: XC_LoadPackage.LoadPackageParam) {
+        Log.d("vcamsx","这里运行了几次")
         XposedHelpers.findAndHookMethod(c2StateCallbackClass, "onOpened", CameraDevice::class.java, object : XC_MethodHook() {
             @Throws(Throwable::class)
             override fun beforeHookedMethod(param: MethodHookParam) {
-                original_c2_preview_Surface = null
+//                original_c2_preview_Surface = null
+
+                Log.d("vcamsx","ijk播放器被释放了：$ijkMediaPlayer")
+
+
+
+
+
             }
         })
 
@@ -210,37 +224,58 @@ class MainHook : IXposedHookLoadPackage {
                         if(param.args[0] == c2_virtual_surface)return
                         val surfaceInfo = param.args[0].toString()
                         if (!surfaceInfo.contains("Surface(name=null)")) {
-                            if(original_c2_preview_Surface == null ){
+                            if(original_c2_preview_Surface != param.args[0] as Surface ){
                                 original_c2_preview_Surface = param.args[0] as Surface
-                                if(original_c2_preview_Surface?.isValid == true) {
-                                    playtestcount = 0
-                                    process_camera_play()
-                                }
+//                                if(original_c2_preview_Surface?.isValid == true) {
+////                                    process_camera2_exoplay_play()
+//                                    process_camera_play()
+//                                }
                             }
                         }
                     }
                 }
-
-                override fun afterHookedMethod(param: MethodHookParam?) {
-                    super.afterHookedMethod(param)
-                    if (param != null) {
-                        if (param.args[0] != null) {
-                            if(param.args[0] == c2_virtual_surface)return
-                            val surfaceInfo = param.args[0].toString()
-                            if (!surfaceInfo.contains("Surface(name=null)")) {
-                                if(!isplaying){
-                                    process_camera_play()
-                                }
-                            }
-                        }
-                    }
-                }
+//                override fun afterHookedMethod(param: MethodHookParam?) {
+//                    if (param != null) {
+//                        if (param.args[0] != null) {
+//                            if(param.args[0] == c2_virtual_surface)return
+//                            val surfaceInfo = param.args[0].toString()
+//                            if (!surfaceInfo.contains("Surface(name=null)")) {
+//                                if(original_c2_preview_Surface == null ){
+//                                    original_c2_preview_Surface = param.args[0] as Surface
+////                                if(original_c2_preview_Surface?.isValid == true) {
+//////                                    process_camera2_exoplay_play()
+////                                    process_camera_play()
+////                                }
+//                                }
+//                            }
+//                        }
+//                    }
+//                }
+//                override fun afterHookedMethod(param: MethodHookParam?) {
+//                    super.afterHookedMethod(param)
+//                    if (param != null) {
+//                        if (param.args[0] != null) {
+//                            if(param.args[0] == c2_virtual_surface)return
+//                            val surfaceInfo = param.args[0].toString()
+//                            if (!surfaceInfo.contains("Surface(name=null)")) {
+//                                if(!isplaying){
+//                                    process_camera_play()
+//                                }
+//                            }
+//                        }
+//                    }
+//                }
             })
 
         XposedHelpers.findAndHookMethod("android.hardware.camera2.CaptureRequest.Builder", lpparam.classLoader, "build",object :XC_MethodHook(){
             @Throws(Throwable::class)
             override fun beforeHookedMethod(param: MethodHookParam) {
-                HLog.d(msg = "build构建成功")
+                if(param.thisObject != null && param.thisObject != c2_builder){
+                    c2_builder = param.thisObject as CaptureRequest.Builder
+                    Log.d("vcamsx","开始构建播放")
+                    process_camera_play()
+                    Log.d("vcamsx","构建结束了么")
+                }
             }
         })
 
@@ -250,6 +285,84 @@ class MainHook : IXposedHookLoadPackage {
                 original_c2_preview_Surface = null
             }
         })
+    }
+
+
+
+    fun process_camera_play() {
+        if(videoStatus != null && videoStatus!!.videoPlayer == 1){
+//            exoplay_play()
+            Log.d("vcam","摄像头调用了")
+            ijkplay_play()
+        }else{
+            media_play()
+        }
+
+    }
+    fun initIjkPlayer(){
+        ijkMediaPlayer = MediaPlayerManager.acquirePlayer()
+        Log.d("vcamsx", "ijkMediaPlayer的id: " + System.identityHashCode(ijkMediaPlayer!!))
+        // 设置解码方式为软解码
+        ijkMediaPlayer!!.setOption(IjkMediaPlayer.OPT_CATEGORY_PLAYER, "mediacodec", 0)
+        ijkMediaPlayer!!.setOnPreparedListener {
+            Log.d("vcamsx","视频准备好了")
+            ijkMediaPlayer!!.setVolume(0F, 0F) // 设置音量为0
+            ijkMediaPlayer!!.start()
+        }
+        ijkMediaPlayer!!.setOnCompletionListener {
+            playNextVideo()
+        }
+        ijkMediaPlayer!!.setOnErrorListener { mp, what, extra ->
+            Log.d("vcamsx","报错$what,额外信息：$extra")
+            // 当发生播放错误时调用此方法
+            false // 返回true表示已处理错误，返回false表示未处理错误
+        }
+        Log.d("vcamsx","这里运行了么")
+
+    }
+
+    private fun playNextVideo() {
+        try {
+            ijkMediaPlayer!!.reset()
+            val videoUrl ="content://com.wangyiheng.vcamsx.videoprovider"
+            ijkMediaPlayer!!.setDataSource(context, Uri.parse(videoUrl))
+            ijkMediaPlayer!!.setSurface(original_c2_preview_Surface)
+            ijkMediaPlayer!!.prepareAsync()
+
+        } catch (e: Exception) {
+            e.printStackTrace()
+            // Handle exception during playing next video
+        }
+    }
+
+    fun ijkplay_play(){
+        try {
+            if (original_c2_preview_Surface != null ) {
+
+                initIjkPlayer()
+                Log.d("vcamsx","视频准备")
+                Log.d("vcamsx", "ijkMediaPlayer的id: " + System.identityHashCode(ijkMediaPlayer!!))
+                val videoUrl ="content://com.wangyiheng.vcamsx.videoprovider"
+                ijkMediaPlayer!!.setDataSource(context, Uri.parse(videoUrl))
+                ijkMediaPlayer!!.setSurface(original_c2_preview_Surface)
+
+                ijkMediaPlayer!!.prepareAsync()
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            // Handle exception during camera2 ijkplayer play
+        }
+    }
+
+    fun exoplay_play(){
+        if (original_c2_preview_Surface != null) {
+            val player_exoplayer =  initPlayer()
+            if(videoStatus != null && videoStatus!!.isVideoEnable){
+                player_exoplayer.setVideoSurface(original_c2_preview_Surface)
+                player_exoplayer.prepare()
+                player_exoplayer.play()
+            }
+        }
     }
 
     private fun initPlayer(): ExoPlayer {
@@ -266,13 +379,6 @@ class MainHook : IXposedHookLoadPackage {
                 super.onIsPlayingChanged(isPlaying)
                 isplaying = true
             }
-            override fun onPlayerError(error: PlaybackException) {
-                player_exoplayer.release()
-                if(original_c2_preview_Surface!!.isValid && playtestcount < 5){
-                    process_camera_play()
-                    playtestcount++
-                }
-            }
         })
 
 
@@ -282,26 +388,6 @@ class MainHook : IXposedHookLoadPackage {
         player_exoplayer.prepare()
         return player_exoplayer
     }
-
-    fun process_camera_play() {
-        if(videoStatus != null && videoStatus!!.videoPlayer == 1){
-            exoplay_play()
-        }else{
-            media_play()
-        }
-    }
-
-    fun exoplay_play(){
-        if (original_c2_preview_Surface != null) {
-            val player_exoplayer =   initPlayer()
-            if(videoStatus != null && videoStatus!!.isVideoEnable){
-                player_exoplayer.setVideoSurface(original_c2_preview_Surface)
-                player_exoplayer.prepare()
-                player_exoplayer.play()
-            }
-        }
-    }
-
     private fun media_play() {
         if (original_c2_preview_Surface != null) {
             val player_media = MediaPlayer()
