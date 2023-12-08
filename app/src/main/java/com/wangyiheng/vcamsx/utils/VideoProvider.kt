@@ -7,14 +7,39 @@ import android.database.MatrixCursor
 import android.net.Uri
 import android.os.ParcelFileDescriptor
 import android.util.Log
+import com.wangyiheng.vcamsx.R
 import java.io.File
 
 class VideoProvider : ContentProvider() {
 
     override fun openFile(uri: Uri, mode: String): ParcelFileDescriptor? {
-        val path = context?.getExternalFilesDir(null)!!.absolutePath
-        val file = File(path, "copied_video.mp4")
-        Log.d("cursor", "openFile: ${file}")
+        val filePath = extractContent(uri.toString())
+        val file: File
+
+        if (filePath == "vcamsx.mp4") {
+            Log.d("vcamsx", filePath)
+
+            // 获取外部文件目录
+            val externalFilesDir = context?.getExternalFilesDir(null)?.absolutePath ?: return null
+
+            // 创建一个指向 "dbb.mp4" 的文件对象
+            val vcamsxFile = File(externalFilesDir, "dbb.mp4")
+
+            // 检查文件是否存在，如果不存在，则从资源中复制
+            if (!vcamsxFile.exists()) {
+                context?.resources?.openRawResource(R.raw.vcamsx).use { inputStream ->
+                    vcamsxFile.outputStream().use { fileOutputStream ->
+                        inputStream?.copyTo(fileOutputStream)
+                    }
+                }
+            }
+
+            file = vcamsxFile
+        }else{
+            val path = context?.getExternalFilesDir(null)!!.absolutePath
+            file = File(path, "copied_video.mp4")
+        }
+
         return ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY)
     }
 
@@ -24,7 +49,16 @@ class VideoProvider : ContentProvider() {
         return true
     }
 
+    fun extractContent(url: String): String? {
+        val prefix = "com.wangyiheng.vcamsx.videoprovider/"
+        val index = url.indexOf(prefix)
 
+        return if (index != -1) {
+            url.substring(index + prefix.length)
+        } else {
+            null
+        }
+    }
     override fun query(uri: Uri, projection: Array<String>?, selection: String?, selectionArgs: Array<String>?, sortOrder: String?): Cursor {
         // 创建MatrixCursor
         val cursor = MatrixCursor(arrayOf("_id", "display_name", "size", "date_modified","file"))

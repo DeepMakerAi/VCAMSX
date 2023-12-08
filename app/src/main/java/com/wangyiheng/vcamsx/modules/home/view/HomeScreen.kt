@@ -7,8 +7,10 @@ import android.net.Uri
 import android.os.Build
 import android.provider.CalendarContract
 import android.util.Log
+import android.view.Surface
 import android.view.SurfaceHolder
 import android.view.SurfaceView
+import android.view.TextureView
 import android.widget.Toast
 import android.widget.VideoView
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -33,13 +35,14 @@ import androidx.media3.common.MediaItem
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 import com.wangyiheng.vcamsx.modules.home.controllers.HomeController
+import tv.danmaku.ijk.media.player.IjkMediaPlayer
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.nio.channels.FileChannel
 
 
-
+var mediaPlayer: IjkMediaPlayer? = null
 
 @Composable
 fun HomeScreen() {
@@ -48,10 +51,20 @@ fun HomeScreen() {
     val path = context.getExternalFilesDir(null)!!.absolutePath
     val file = File(path, "copied_video.mp4")
     val detailAlterShow = remember { mutableStateOf(false) }
-
+    val ijkPlayer = remember {
+        IjkMediaPlayer().apply {
+            setDataSource(context, Uri.parse("$path/copied_video.mp4"))
+            setOnPreparedListener { start() } // 准备完成后开始播放
+            setOption(IjkMediaPlayer.OPT_CATEGORY_PLAYER, "mediacodec", 0)
+        }
+    }
     LaunchedEffect(Unit){
         homeController.init()
     }
+    val showDialog = remember { mutableStateOf(true) }
+
+    val videoPath = context.getExternalFilesDir(null)!!.absolutePath + "/copied_video.mp4"
+
 
     val selectVideoLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -84,44 +97,8 @@ fun HomeScreen() {
         ) {
             // 使按钮宽度等于列的最大宽度
 
-            if (detailAlterShow.value) {
-                val exoPlayer = remember {
-                    ExoPlayer.Builder(context).build().apply {
-                        // 配置 ExoPlayer，例如设置媒体源等
-                        val mediaItem = MediaItem.fromUri(Uri.fromFile(file))
-                        setMediaItem(mediaItem)
-                        prepare()
-                    }
-                }
 
-                Dialog(
-                    onDismissRequest = {
-                        detailAlterShow.value = false
-                        exoPlayer.release() // 释放播放器资源
-                    }
-                ) {
-                    Column(modifier = Modifier.fillMaxSize(),verticalArrangement = Arrangement.Center) {
-                        AndroidView(
-                            factory = { context ->
-                                PlayerView(context).apply {
-                                    player = exoPlayer
-                                }
-                            },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .aspectRatio(16f / 9f)
-                        )
-                        Button(onClick = {
-                            detailAlterShow.value = false
-                            exoPlayer.release() // 关闭时释放播放器资源
-                        },modifier = Modifier.fillMaxWidth()) {
-                            Text("关闭")
-                        }
-                    }
-
-                }
-            }
-
+                VideoPlayerDialog(detailAlterShow, context, videoPath)
 
 
 
@@ -170,24 +147,74 @@ fun HomeScreen() {
                     }
                 )
             }
-            Row(
-                verticalAlignment = Alignment.CenterVertically, // 对齐文本和开关
-                modifier = Modifier.fillMaxWidth() // 拉伸以匹配按钮宽度
+//            Row(
+//                verticalAlignment = Alignment.CenterVertically, // 对齐文本和开关
+//                modifier = Modifier.fillMaxWidth() // 拉伸以匹配按钮宽度
+//            ) {
+//                Text("备选播放器:", modifier = Modifier.weight(1f)) // 权重使文本占据大部分空间
+//                Switch(
+//                    checked = (homeController.videoPlayer.value == 2),
+//                    onCheckedChange = {
+//                        homeController.videoPlayer.value = if(it) 2 else 1
+//                        homeController.saveState()
+//                        Toast.makeText(context, if (it) "备选播放器打开" else "备选播放器关闭", Toast.LENGTH_SHORT).show()
+//                    }
+//                )
+//            }
+        }
+    }
+}
+@Composable
+fun VideoPlayerDialog(showDialog: MutableState<Boolean>, context: Context, videoPath: String) {
+    if (showDialog.value) {
+        Dialog(onDismissRequest = {
+            showDialog.value = false
+            mediaPlayer?.release()
+        }) {
+            Column(
+                modifier = Modifier.size(width = 300.dp, height = 400.dp), // 设置Dialog的大小
+                verticalArrangement = Arrangement.Center
             ) {
-                Text("备选播放器:", modifier = Modifier.weight(1f)) // 权重使文本占据大部分空间
-                Switch(
-                    checked = (homeController.videoPlayer.value == 2),
-                    onCheckedChange = {
-                        homeController.videoPlayer.value = if(it) 2 else 1
-                        homeController.saveState()
-                        Toast.makeText(context, if (it) "备选播放器打开" else "备选播放器关闭", Toast.LENGTH_SHORT).show()
+                AndroidView(
+                    modifier = Modifier.weight(1f), // 让视频播放器填充除按钮以外的空间
+                    factory = { ctx ->
+                        SurfaceView(ctx).apply {
+                            holder.addCallback(object : SurfaceHolder.Callback {
+                                override fun surfaceCreated(holder: SurfaceHolder) {
+                                    playVideo(context, holder, videoPath)
+                                }
+
+                                override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {}
+
+                                override fun surfaceDestroyed(holder: SurfaceHolder) {
+                                    // 这里释放播放器资源
+                                }
+                            })
+                        }
                     }
                 )
+                Button(
+                    onClick = { showDialog.value = false }, // 点击按钮关闭Dialog
+                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                ) {
+                    Text("关闭")
+                }
             }
         }
     }
 }
 
+// 其他代码保持不变
+
+
+private fun playVideo(context: Context, holder: SurfaceHolder, videoPath: String) {
+    mediaPlayer = IjkMediaPlayer().apply {
+        setDataSource(videoPath)
+        setDisplay(holder)
+        prepareAsync()
+        setOnPreparedListener { start() }
+    }
+}
 @Preview
 @Composable
 fun PreviewMessageCard() {

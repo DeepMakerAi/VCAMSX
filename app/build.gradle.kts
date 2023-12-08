@@ -12,8 +12,8 @@ android {
         minSdk = 24
         //noinspection EditedTargetSdkVersion
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0.1"
+        versionCode = 3
+        versionName = "1.0.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -61,7 +61,7 @@ dependencies {
 
 // Bill of Materials (BOM) for all Compose libraries, ensures compatible versions
     implementation(platform("androidx.compose:compose-bom:2023.03.00"))
-
+    implementation ("com.contrarywind:Android-PickerView:latest.release")
 // Compose UI framework
     implementation("androidx.compose.ui:ui")
 
