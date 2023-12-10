@@ -97,9 +97,7 @@ fun HomeScreen() {
         ) {
             // 使按钮宽度等于列的最大宽度
 
-
-                VideoPlayerDialog(detailAlterShow, context, videoPath)
-
+            VideoPlayerDialog(detailAlterShow, context, videoPath)
 
 
             Button(
@@ -161,6 +159,20 @@ fun HomeScreen() {
 //                    }
 //                )
 //            }
+            Row(
+                verticalAlignment = Alignment.CenterVertically, // 对齐文本和开关
+                modifier = Modifier.fillMaxWidth() // 拉伸以匹配按钮宽度
+            ) {
+                Text((if (homeController.codecType.value) "硬解码" else "软解码")+":", modifier = Modifier.weight(1f)) // 权重使文本占据大部分空间
+                Switch(
+                    checked = (homeController.codecType.value),
+                    onCheckedChange = {
+                        homeController.codecType.value = it
+                        homeController.saveState()
+                        Toast.makeText(context, if (it) "硬解码" else "软解码", Toast.LENGTH_SHORT).show()
+                    }
+                )
+            }
         }
     }
 }

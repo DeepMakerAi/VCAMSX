@@ -20,6 +20,7 @@ class HomeController: KoinComponent {
     val isVideoEnabled  = mutableStateOf(false)
     val isVolumeEnabled = mutableStateOf(false)
     val videoPlayer = mutableStateOf(1)
+    val codecType = mutableStateOf(true)
     val infoManager by inject<InfoManager>()
 
     fun init(){
@@ -44,7 +45,8 @@ class HomeController: KoinComponent {
             VideoStatues(
                 isVideoEnabled.value,
                 isVolumeEnabled.value,
-                videoPlayer.value
+                videoPlayer.value,
+                codecType.value
             )
         )
     }
@@ -54,6 +56,7 @@ class HomeController: KoinComponent {
             isVideoEnabled.value = it.isVideoEnable
             isVolumeEnabled.value = it.volume
             videoPlayer.value = it.videoPlayer
+            codecType.value = it.codecType
         }
     }
 }

@@ -9,39 +9,37 @@ import android.os.ParcelFileDescriptor
 import android.util.Log
 import com.wangyiheng.vcamsx.R
 import java.io.File
+import java.io.FileOutputStream
+import java.io.IOException
 
 class VideoProvider : ContentProvider() {
 
     override fun openFile(uri: Uri, mode: String): ParcelFileDescriptor? {
-        val filePath = extractContent(uri.toString())
-        val file: File
+        // 获取外部文件目录
+        val externalFilesDir = context?.getExternalFilesDir(null)?.absolutePath ?: return null
 
-        if (filePath == "vcamsx.mp4") {
-            Log.d("vcamsx", filePath)
+        // 创建一个指向 "copied_video.mp4" 的文件对象
+        val vcamsxFile = File(externalFilesDir, "copied_video.mp4")
 
-            // 获取外部文件目录
-            val externalFilesDir = context?.getExternalFilesDir(null)?.absolutePath ?: return null
-
-            // 创建一个指向 "dbb.mp4" 的文件对象
-            val vcamsxFile = File(externalFilesDir, "dbb.mp4")
-
-            // 检查文件是否存在，如果不存在，则从资源中复制
-            if (!vcamsxFile.exists()) {
-                context?.resources?.openRawResource(R.raw.vcamsx).use { inputStream ->
-                    vcamsxFile.outputStream().use { fileOutputStream ->
-                        inputStream?.copyTo(fileOutputStream)
+        // 检查文件是否存在，如果不存在，则从资源中复制
+        if (!vcamsxFile.exists()) {
+            try {
+                // 使用 try-with-resources 语句确保资源被正确关闭
+                context?.resources?.openRawResource(R.raw.vcamsx)?.use { inputStream ->
+                    FileOutputStream(vcamsxFile).use { fileOutputStream ->
+                        inputStream.copyTo(fileOutputStream)
                     }
                 }
+            } catch (e: IOException) {
+                e.printStackTrace()
+                return null
             }
-
-            file = vcamsxFile
-        }else{
-            val path = context?.getExternalFilesDir(null)!!.absolutePath
-            file = File(path, "copied_video.mp4")
         }
 
-        return ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY)
+        // 返回文件的 ParcelFileDescriptor，设置为只读模式
+        return ParcelFileDescriptor.open(vcamsxFile, ParcelFileDescriptor.MODE_READ_ONLY)
     }
+
 
 
     override fun onCreate(): Boolean {
