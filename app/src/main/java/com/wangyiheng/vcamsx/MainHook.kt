@@ -106,7 +106,8 @@ class MainHook : IXposedHookLoadPackage {
                         fake_SurfaceTexture!!.release()
                         SurfaceTexture(10)
                     }
-                    Toast.makeText(context, "camera1hook成功了", Toast.LENGTH_SHORT).show()
+                    ijkMediaPlayer?.reset()
+                    ijkMediaPlayer = null
                     param.args[0] = fake_SurfaceTexture
                 }
             })
@@ -114,7 +115,10 @@ class MainHook : IXposedHookLoadPackage {
 
         XposedHelpers.findAndHookMethod("android.hardware.Camera", lpparam.classLoader, "startPreview", object : XC_MethodHook() {
             override fun beforeHookedMethod(param: MethodHookParam?) {
-                Toast.makeText(context, "startPreview触发了", Toast.LENGTH_SHORT).show()
+                if(ijkMediaPlayer == null || !ijkMediaPlayer!!.isPlayable){
+                    initIjkPlayer()
+                }
+                TheOnlyPlayer = ijkMediaPlayer
                 c1_camera_play()
             }
         })
@@ -226,8 +230,7 @@ class MainHook : IXposedHookLoadPackage {
                         initIjkPlayer()
                     }
                     TheOnlyPlayer = ijkMediaPlayer
-                    Log.d("vcamsx",ijkMediaPlayer.toString())
-                    Log.d("vcamsx",TheOnlyPlayer.toString())
+
                     process_camera_play()
                 }
             }
@@ -249,10 +252,8 @@ class MainHook : IXposedHookLoadPackage {
         if(ijkMediaPlayer == null){
             ijkMediaPlayer = IjkMediaPlayer()
             ijkMediaPlayer!!.setVolume(0F, 0F) // 设置音量为0
-            Log.d("vcamsx", videoStatus.toString())
             // 设置解码方式为软解码
             if (videoStatus != null) {
-                Log.d("vcamsx", videoStatus.toString())
                 val codecType = videoStatus!!.codecType
                 val mediaCodecOption = if (codecType) 1L else 0L // 将 Int 转换为 Long
                 ijkMediaPlayer?.setOption(IjkMediaPlayer.OPT_CATEGORY_PLAYER, "mediacodec", mediaCodecOption)
@@ -295,7 +296,6 @@ class MainHook : IXposedHookLoadPackage {
 
     private fun playNextVideo() {
         try {
-            Log.d("vcamsx",ijkMediaPlayer.toString())
             ijkMediaPlayer!!.reset()
             val videoUrl ="content://com.wangyiheng.vcamsx.videoprovider"
             ijkMediaPlayer!!.setDataSource(context, Uri.parse(videoUrl))
@@ -328,67 +328,11 @@ class MainHook : IXposedHookLoadPackage {
     }
 
     private fun c1_camera_play() {
-        Log.d("vcamsx","camera1触发成功")
         if (original_c1_preview_SurfaceTexture != null && videoStatus?.isVideoEnable == true) {
-            original_preview_Surface = original_preview_Surface?.apply { release() } ?: Surface(original_c1_preview_SurfaceTexture)
-            original_preview_Surface?.let { surface ->
-                handleMediaPlayer(surface)
-            }
-        }
-    }
-
-
-    fun exoplay_play(){
-        if (original_preview_Surface != null) {
-            val player_exoplayer =  initPlayer()
-            if(videoStatus != null && videoStatus!!.isVideoEnable){
-                player_exoplayer.setVideoSurface(original_preview_Surface)
-                player_exoplayer.prepare()
-                player_exoplayer.play()
-            }
-        }
-    }
-
-    private fun initPlayer(): ExoPlayer {
-        val player_exoplayer = ExoPlayer.Builder(context!!).build()
-        player_exoplayer.repeatMode = Player.REPEAT_MODE_ALL
-        if(videoStatus != null && videoStatus!!.volume){
-            player_exoplayer.volume = 1f
-        }else{
-            player_exoplayer.volume = 0f
-        }
-        player_exoplayer.shuffleModeEnabled = true
-        player_exoplayer.addListener(object : Player.Listener {
-            override fun onIsPlayingChanged(isPlaying: Boolean) {
-                super.onIsPlayingChanged(isPlaying)
-                isplaying = true
-            }
-        })
-
-
-        val mediaItem = MediaItem.fromUri("content://com.wangyiheng.vcamsx.videoprovider")
-
-        player_exoplayer.setMediaItem(mediaItem)
-        player_exoplayer.prepare()
-        return player_exoplayer
-    }
-    private fun media_play() {
-        if (original_preview_Surface != null) {
-            val player_media = MediaPlayer()
-            player_media.isLooping = true
-            player_media.setSurface(original_preview_Surface)
-
-            player_media.reset()
-            val videoPathUri = Uri.parse("content://com.wangyiheng.vcamsx.videoprovider")
-            player_media.setVolume(0f, 0f)
-            player_media.setDataSource(context!!, videoPathUri)
-
-            player_media.prepare()
-
-            // 设置视频准备好的监听器
-            player_media.setOnPreparedListener {
-                player_media.start()
-                isplaying = true
+            original_preview_Surface = Surface(original_c1_preview_SurfaceTexture)
+            if(original_preview_Surface!!.isValid == true){
+                Log.d("vcamsx","将页面指向新页面")
+                handleMediaPlayer(original_preview_Surface!!)
             }
         }
     }
