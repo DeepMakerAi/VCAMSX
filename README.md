@@ -3,6 +3,9 @@
 # 请勿用于任何非法用途，所有后果自负！！
 ## 使用演示
 - https://fastly.jsdelivr.net/gh/iiheng/TuChuang@main/1700961311425EasyGIF-1700961287297.gif
+## 开发计划
+- [ ] 支持rtmp传输直播
+- [ ] 支持视频提前选择，自定义播放顺序
 ## 开发环境
 - Android SDK 34
 - Xposed 82
