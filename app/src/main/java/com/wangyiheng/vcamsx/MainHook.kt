@@ -68,7 +68,7 @@ class MainHook : IXposedHookLoadPackage {
                         try {
                             context = applicationContext
                             initStatus()
-                            synchronized(this) {
+                            if(!lpparam.processName.contains(":")){
                                 if(ijkMediaPlayer == null && videoStatus?.isVideoEnable == true){
                                     initIjkPlayer()
                                 }
@@ -198,6 +198,8 @@ class MainHook : IXposedHookLoadPackage {
         XposedHelpers.findAndHookMethod(c2StateCallbackClass, "onOpened", CameraDevice::class.java, object : XC_MethodHook() {
             @Throws(Throwable::class)
             override fun beforeHookedMethod(param: MethodHookParam) {
+                ijkMediaPlayer?.reset()
+                ijkMediaPlayer = null
                 original_preview_Surface = null
             }
         })
@@ -214,6 +216,7 @@ class MainHook : IXposedHookLoadPackage {
                         val surfaceInfo = param.args[0].toString()
                         if (!surfaceInfo.contains("Surface(name=null)")) {
                             if(original_preview_Surface != param.args[0] as Surface ){
+
                                 original_preview_Surface = param.args[0] as Surface
                             }
                         }
