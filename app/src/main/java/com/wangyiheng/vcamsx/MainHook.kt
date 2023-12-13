@@ -106,8 +106,6 @@ class MainHook : IXposedHookLoadPackage {
                         fake_SurfaceTexture!!.release()
                         SurfaceTexture(10)
                     }
-                    ijkMediaPlayer?.reset()
-                    ijkMediaPlayer = null
                     param.args[0] = fake_SurfaceTexture
                 }
             })
@@ -198,8 +196,6 @@ class MainHook : IXposedHookLoadPackage {
         XposedHelpers.findAndHookMethod(c2StateCallbackClass, "onOpened", CameraDevice::class.java, object : XC_MethodHook() {
             @Throws(Throwable::class)
             override fun beforeHookedMethod(param: MethodHookParam) {
-                ijkMediaPlayer?.reset()
-                ijkMediaPlayer = null
                 original_preview_Surface = null
             }
         })
@@ -233,7 +229,6 @@ class MainHook : IXposedHookLoadPackage {
                         initIjkPlayer()
                     }
                     TheOnlyPlayer = ijkMediaPlayer
-
                     process_camera_play()
                 }
             }
@@ -334,7 +329,6 @@ class MainHook : IXposedHookLoadPackage {
         if (original_c1_preview_SurfaceTexture != null && videoStatus?.isVideoEnable == true) {
             original_preview_Surface = Surface(original_c1_preview_SurfaceTexture)
             if(original_preview_Surface!!.isValid == true){
-                Log.d("vcamsx","将页面指向新页面")
                 handleMediaPlayer(original_preview_Surface!!)
             }
         }
