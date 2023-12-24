@@ -4,5 +4,6 @@ data class VideoStatues(
     val isVideoEnable:Boolean = false,
     val volume: Boolean = false,
     val videoPlayer:Int = 1,
-    val codecType:Boolean = false
+    val codecType:Boolean = false,
+    val isLiveStreamingEnabled:Boolean = false
 )

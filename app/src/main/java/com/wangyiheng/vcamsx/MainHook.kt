@@ -6,15 +6,10 @@ import android.graphics.SurfaceTexture
 import android.hardware.Camera
 import android.hardware.camera2.CameraDevice
 import android.hardware.camera2.CaptureRequest
-import android.media.MediaPlayer
 import android.net.Uri
 import android.os.Handler
 import android.util.Log
 import android.view.Surface
-import android.widget.Toast
-import androidx.media3.common.MediaItem
-import androidx.media3.common.Player
-import androidx.media3.exoplayer.ExoPlayer
 import cn.dianbobo.dbb.util.HLog
 import com.wangyiheng.vcamsx.data.models.VideoStatues
 import com.wangyiheng.vcamsx.utils.InfoManager
@@ -69,8 +64,12 @@ class MainHook : IXposedHookLoadPackage {
                             context = applicationContext
                             initStatus()
                             if(!lpparam.processName.contains(":")){
-                                if(ijkMediaPlayer == null && videoStatus?.isVideoEnable == true){
-                                    initIjkPlayer()
+                                if(ijkMediaPlayer == null){
+                                    if(videoStatus?.isLiveStreamingEnabled == true){
+                                        initRTMPStream()
+                                    }else if(videoStatus?.isVideoEnable == true){
+                                        initIjkPlayer()
+                                    }
                                 }
                             }
                         } catch (ee: Exception) {
@@ -114,7 +113,11 @@ class MainHook : IXposedHookLoadPackage {
         XposedHelpers.findAndHookMethod("android.hardware.Camera", lpparam.classLoader, "startPreview", object : XC_MethodHook() {
             override fun beforeHookedMethod(param: MethodHookParam?) {
                 if(ijkMediaPlayer == null || !ijkMediaPlayer!!.isPlayable){
-                    initIjkPlayer()
+                    if(videoStatus?.isLiveStreamingEnabled == true){
+                        initRTMPStream()
+                    }else if(videoStatus?.isVideoEnable == true){
+                        initIjkPlayer()
+                    }
                 }
                 TheOnlyPlayer = ijkMediaPlayer
                 c1_camera_play()
@@ -226,7 +229,11 @@ class MainHook : IXposedHookLoadPackage {
                 if(param.thisObject != null && param.thisObject != c2_builder){
                     c2_builder = param.thisObject as CaptureRequest.Builder
                     if(ijkMediaPlayer == null || !ijkMediaPlayer!!.isPlayable){
-                        initIjkPlayer()
+                        if(videoStatus?.isLiveStreamingEnabled == true){
+                            initRTMPStream()
+                        }else if(videoStatus?.isVideoEnable == true){
+                            initIjkPlayer()
+                        }
                     }
                     TheOnlyPlayer = ijkMediaPlayer
                     process_camera_play()
@@ -245,6 +252,7 @@ class MainHook : IXposedHookLoadPackage {
     fun process_camera_play() {
             ijkplay_play()
     }
+
 
     fun initIjkPlayer(){
         if(ijkMediaPlayer == null){
@@ -292,6 +300,56 @@ class MainHook : IXposedHookLoadPackage {
         }
     }
 
+    fun initRTMPStream() {
+        ijkMediaPlayer = IjkMediaPlayer().apply {
+            try {
+                // 硬件解码设置,0为软解，1为硬解
+                setOption(IjkMediaPlayer.OPT_CATEGORY_PLAYER, "mediacodec", 0)
+                setOption(IjkMediaPlayer.OPT_CATEGORY_PLAYER, "mediacodec-auto-rotate", 1)
+                setOption(IjkMediaPlayer.OPT_CATEGORY_PLAYER, "mediacodec-handle-resolution-change", 1)
+
+                // 缓冲设置
+                setOption(IjkMediaPlayer.OPT_CATEGORY_FORMAT, "dns_cache_clear", 1)
+                setOption(IjkMediaPlayer.OPT_CATEGORY_PLAYER, "start-on-prepared", 0)
+                setOption(IjkMediaPlayer.OPT_CATEGORY_PLAYER, "mediacodec_mpeg4", 1)
+                setOption(IjkMediaPlayer.OPT_CATEGORY_PLAYER, "analyzemaxduration", 100L)
+                setOption(IjkMediaPlayer.OPT_CATEGORY_PLAYER, "probesize", 1024L)
+                setOption(IjkMediaPlayer.OPT_CATEGORY_PLAYER, "flush_packets", 1L)
+                setOption(IjkMediaPlayer.OPT_CATEGORY_PLAYER, "packet-buffering", 1L)
+                setOption(IjkMediaPlayer.OPT_CATEGORY_PLAYER, "framedrop", 1L)
+
+                // 错误监听器
+                setOnErrorListener { _, what, extra ->
+                    Log.e("IjkMediaPlayer", "Error occurred. What: $what, Extra: $extra")
+                    true
+                }
+
+                // 信息监听器
+                setOnInfoListener { _, what, extra ->
+                    Log.i("IjkMediaPlayer", "Info received. What: $what, Extra: $extra")
+                    true
+                }
+
+                // 设置 RTMP 流的 URL
+                dataSource = "rtmp://ns8.indexforce.com/home/mystream"
+
+                // 异步准备播放器
+                prepareAsync()
+                // 当播放器准备好后，开始播放
+                setOnPreparedListener {
+                    Log.d("vcamsx","onPrepared直播推流开始")
+                    if(original_preview_Surface != null){
+                        ijkMediaPlayer!!.setSurface(original_preview_Surface)
+                    }
+                    start()
+                }
+            } catch (e: Exception) {
+                Log.d("vcamsx","$e")
+            }
+        }
+    }
+
+
     private fun playNextVideo() {
         try {
             ijkMediaPlayer!!.reset()
@@ -310,7 +368,7 @@ class MainHook : IXposedHookLoadPackage {
             videoStatus?.let { status ->
                 val volume = if (status.isVideoEnable && status.volume) 1F else 0F
                 ijkMediaPlayer?.setVolume(volume, volume)
-                if (status.isVideoEnable) {
+                if (status.isVideoEnable || status.isLiveStreamingEnabled) {
                     ijkMediaPlayer?.setSurface(surface)
                 }
             }

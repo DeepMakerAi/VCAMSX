@@ -4,13 +4,7 @@ import android.content.Context
 import android.net.Uri
 import android.util.Log
 import android.view.SurfaceHolder
-import android.widget.Toast
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import com.wangyiheng.vcamsx.data.models.VideoStatues
 import com.wangyiheng.vcamsx.utils.InfoManager
@@ -25,11 +19,16 @@ class HomeController: ViewModel(),KoinComponent {
     val isVolumeEnabled = mutableStateOf(false)
     val videoPlayer = mutableStateOf(1)
     val codecType = mutableStateOf(true)
+    val isLiveStreamingEnabled = mutableStateOf(false)
+
     val infoManager by inject<InfoManager>()
     var mediaPlayer: IjkMediaPlayer? = null
     private var retryCount = 0
     private val maxRetryCount = 5
-    val detailAlterShow =  mutableStateOf(false)
+    val isLiveStreamingDisplay =  mutableStateOf(false)
+    val isVideoDisplay =  mutableStateOf(false)
+    var liveURL = mutableStateOf("rtmp://ns8.indexforce.com/home/mystream")
+
     fun init(){
         getState()
     }
@@ -53,7 +52,8 @@ class HomeController: ViewModel(),KoinComponent {
                 isVideoEnabled.value,
                 isVolumeEnabled.value,
                 videoPlayer.value,
-                codecType.value
+                codecType.value,
+                isLiveStreamingEnabled.value
             )
         )
     }
@@ -64,11 +64,12 @@ class HomeController: ViewModel(),KoinComponent {
             isVolumeEnabled.value = it.volume
             videoPlayer.value = it.videoPlayer
             codecType.value = it.codecType
+            isLiveStreamingEnabled.value = it.isLiveStreamingEnabled
         }
     }
 
 
-    private fun playVideo(context: Context, holder: SurfaceHolder, videoPath: String) {
+    fun playVideo(context: Context, holder: SurfaceHolder, videoPath: String) {
         mediaPlayer = IjkMediaPlayer().apply {
             setDataSource(videoPath)
             setDisplay(holder)
@@ -78,10 +79,10 @@ class HomeController: ViewModel(),KoinComponent {
     }
 
 
-    fun playRTMPStream(context: Context, holder: SurfaceHolder, rtmpUrl: String) {
+    fun playRTMPStream(holder: SurfaceHolder, rtmpUrl: String) {
         mediaPlayer = IjkMediaPlayer().apply {
             try {
-                // 硬件解码设置
+                // 硬件解码设置,0为软解，1为硬解
                 setOption(IjkMediaPlayer.OPT_CATEGORY_PLAYER, "mediacodec", 0)
                 setOption(IjkMediaPlayer.OPT_CATEGORY_PLAYER, "mediacodec-auto-rotate", 1)
                 setOption(IjkMediaPlayer.OPT_CATEGORY_PLAYER, "mediacodec-handle-resolution-change", 1)
@@ -122,8 +123,7 @@ class HomeController: ViewModel(),KoinComponent {
             } catch (e: Exception) {
                 if (retryCount < maxRetryCount) {
                     retryCount++
-//                    resetMediaPlayer()
-                    playRTMPStream(context, holder, rtmpUrl)
+//                    playRTMPStream(context, holder, rtmpUrl)
                 }
             }
         }
