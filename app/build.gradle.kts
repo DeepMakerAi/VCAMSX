@@ -52,7 +52,6 @@ dependencies {
 
 // Core library for Kotlin extensions and utilities
     implementation("androidx.core:core-ktx:1.9.0")
-
 // Lifecycle components for using ViewModel and LiveData in a Kotlin-friendly way
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.6.2")
 
