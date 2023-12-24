@@ -29,7 +29,7 @@ fun VideoPlayerDialog(homeController: HomeController, context: Context, videoPat
                         SurfaceView(ctx).apply {
                             holder.addCallback(object : SurfaceHolder.Callback {
                                 override fun surfaceCreated(holder: SurfaceHolder) {
-                                    homeController.playVideo(context, holder, videoPath)
+                                    homeController.playVideo(holder, videoPath)
                                 }
 
                                 override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {

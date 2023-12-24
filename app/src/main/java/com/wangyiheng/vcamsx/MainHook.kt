@@ -10,6 +10,7 @@ import android.net.Uri
 import android.os.Handler
 import android.util.Log
 import android.view.Surface
+import android.widget.Toast
 import cn.dianbobo.dbb.util.HLog
 import com.wangyiheng.vcamsx.data.models.VideoStatues
 import com.wangyiheng.vcamsx.utils.InfoManager
@@ -321,6 +322,7 @@ class MainHook : IXposedHookLoadPackage {
                 // 错误监听器
                 setOnErrorListener { _, what, extra ->
                     Log.e("IjkMediaPlayer", "Error occurred. What: $what, Extra: $extra")
+                    Toast.makeText(context, "直播接收失败$what", Toast.LENGTH_SHORT).show()
                     true
                 }
 
@@ -331,7 +333,7 @@ class MainHook : IXposedHookLoadPackage {
                 }
 
                 // 设置 RTMP 流的 URL
-                dataSource = "rtmp://ns8.indexforce.com/home/mystream"
+                dataSource = videoStatus!!.liveURL
 
                 // 异步准备播放器
                 prepareAsync()
@@ -341,6 +343,7 @@ class MainHook : IXposedHookLoadPackage {
                     if(original_preview_Surface != null){
                         ijkMediaPlayer!!.setSurface(original_preview_Surface)
                     }
+                    Toast.makeText(context, "直播接收成功，可以进行投屏", Toast.LENGTH_SHORT).show()
                     start()
                 }
             } catch (e: Exception) {

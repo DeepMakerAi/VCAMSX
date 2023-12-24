@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import android.util.Log
 import android.view.SurfaceHolder
+import android.widget.Toast
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import com.wangyiheng.vcamsx.data.models.VideoStatues
@@ -15,6 +16,7 @@ import java.io.File
 
 class HomeController: ViewModel(),KoinComponent {
 
+    val context by inject<Context>()
     val isVideoEnabled  = mutableStateOf(false)
     val isVolumeEnabled = mutableStateOf(false)
     val videoPlayer = mutableStateOf(1)
@@ -27,6 +29,7 @@ class HomeController: ViewModel(),KoinComponent {
     private val maxRetryCount = 5
     val isLiveStreamingDisplay =  mutableStateOf(false)
     val isVideoDisplay =  mutableStateOf(false)
+//    rtmp://ns8.indexforce.com/home/mystream
     var liveURL = mutableStateOf("rtmp://ns8.indexforce.com/home/mystream")
 
     fun init(){
@@ -53,7 +56,8 @@ class HomeController: ViewModel(),KoinComponent {
                 isVolumeEnabled.value,
                 videoPlayer.value,
                 codecType.value,
-                isLiveStreamingEnabled.value
+                isLiveStreamingEnabled.value,
+                liveURL.value
             )
         )
     }
@@ -65,13 +69,14 @@ class HomeController: ViewModel(),KoinComponent {
             videoPlayer.value = it.videoPlayer
             codecType.value = it.codecType
             isLiveStreamingEnabled.value = it.isLiveStreamingEnabled
+            liveURL.value = it.liveURL
         }
     }
 
 
-    fun playVideo(context: Context, holder: SurfaceHolder, videoPath: String) {
+    fun playVideo(holder: SurfaceHolder, videoPath: String) {
         mediaPlayer = IjkMediaPlayer().apply {
-            setDataSource(videoPath)
+            dataSource = videoPath
             setDisplay(holder)
             prepareAsync()
             setOnPreparedListener { start() }
@@ -100,6 +105,7 @@ class HomeController: ViewModel(),KoinComponent {
                 // 错误监听器
                 setOnErrorListener { _, what, extra ->
                     Log.e("IjkMediaPlayer", "Error occurred. What: $what, Extra: $extra")
+                    Toast.makeText(context, "直播接收失败$what", Toast.LENGTH_SHORT).show()
                     true
                 }
 
@@ -118,12 +124,16 @@ class HomeController: ViewModel(),KoinComponent {
                 // 异步准备播放器
                 prepareAsync()
 
+
+
                 // 当播放器准备好后，开始播放
-                setOnPreparedListener { start() }
+                setOnPreparedListener {
+                    Toast.makeText(context, "直播接收成功，可以进行投屏", Toast.LENGTH_SHORT).show()
+                    start()
+                }
             } catch (e: Exception) {
                 if (retryCount < maxRetryCount) {
                     retryCount++
-//                    playRTMPStream(context, holder, rtmpUrl)
                 }
             }
         }
@@ -135,10 +145,5 @@ class HomeController: ViewModel(),KoinComponent {
         mediaPlayer = null
     }
 
-//    private fun resetMediaPlayer() {
-//        mediaPlayer?.stop()
-//        mediaPlayer?.release()
-//        mediaPlayer = IjkMediaPlayer()
-//    }
 }
 
