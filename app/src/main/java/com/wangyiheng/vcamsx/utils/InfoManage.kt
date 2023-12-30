@@ -4,7 +4,7 @@ import android.content.Context
 import com.crossbowffs.remotepreferences.RemotePreferences
 import com.wangyiheng.vcamsx.data.models.VideoStatues
 import com.google.gson.Gson
-class InfoManager(private val context: Context) {
+class InfoManager(context: Context) {
     val prefs = RemotePreferences(context, "com.wangyiheng.vcamsx.preferences", "main_prefs")
     private val gson = Gson()
     fun saveVideoStatus(videoStatus: VideoStatues) {

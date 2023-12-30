@@ -35,8 +35,8 @@ object HLog {
             saveLogsToFile(context)
         }
     }
-    private fun saveLogsToFile(toast_content: Context) {
-        val logFileDir = toast_content.getExternalFilesDir(null)!!.absolutePath
+    private fun saveLogsToFile(context: Context) {
+        val logFileDir = context.getExternalFilesDir(null)!!.absolutePath
         val logFilePath = File(logFileDir, "log.txt")
 
         try {

@@ -124,17 +124,13 @@ class HomeController: ViewModel(),KoinComponent {
                 // 异步准备播放器
                 prepareAsync()
 
-
-
                 // 当播放器准备好后，开始播放
                 setOnPreparedListener {
                     Toast.makeText(context, "直播接收成功，可以进行投屏", Toast.LENGTH_SHORT).show()
                     start()
                 }
             } catch (e: Exception) {
-                if (retryCount < maxRetryCount) {
-                    retryCount++
-                }
+                Log.d("vcamsx","播放报错$e")
             }
         }
     }
@@ -144,6 +140,5 @@ class HomeController: ViewModel(),KoinComponent {
         mediaPlayer?.release()
         mediaPlayer = null
     }
-
 }
 
