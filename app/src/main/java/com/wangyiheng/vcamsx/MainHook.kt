@@ -43,7 +43,6 @@ class MainHook : IXposedHookLoadPackage {
         var fake_SurfaceTexture: SurfaceTexture? = null
         var original_preview_Surface: Surface? = null
         var original_c1_preview_SurfaceTexture:SurfaceTexture? = null
-        var a:String? = null
         var isPlaying:Boolean = false
 
     }
@@ -66,66 +65,62 @@ class MainHook : IXposedHookLoadPackage {
             "android.app.Instrumentation", lpparam.classLoader, "callApplicationOnCreate",
             Application::class.java, object : XC_MethodHook() {
                 override fun afterHookedMethod(param: MethodHookParam?) {
-
-                    if (param!!.args[0] is Application) {
-                        val application = param.args[0] as? Application ?: return
-                        val applicationContext = application.applicationContext
-                        if (context == applicationContext) return
-
-                        try {
-                            context = applicationContext
-                            if(!isPlaying){
-                                isPlaying = true
-                                if(ijkMediaPlayer == null){
-                                    initializeTheStateAsWellAsThePlayer()
+                    param?.args?.firstOrNull()?.let { arg ->
+                        if (arg is Application) {
+                            val applicationContext = arg.applicationContext
+                            if (context != applicationContext) {
+                                try {
+                                    context = applicationContext
+                                    if (!isPlaying) {
+                                        isPlaying = true
+                                        ijkMediaPlayer ?: initializeTheStateAsWellAsThePlayer()
+                                    }
+                                } catch (ee: Exception) {
+                                    HLog.d(TAG, "$ee")
                                 }
                             }
-                        } catch (ee: Exception) {
-                            HLog.d(TAG, "$ee")
                         }
                     }
                 }
+            }
+        )
+
+
+
+        // 支持bilibili摄像头替换
+        XposedHelpers.findAndHookMethod("android.hardware.Camera", lpparam.classLoader, "setPreviewTexture",
+            SurfaceTexture::class.java, object : XC_MethodHook() {
+                @Throws(Throwable::class)
+                override fun beforeHookedMethod(param: MethodHookParam) {
+                    if (param.args[0] == null) {
+                        return
+                    }
+                    if (param.args[0] == fake_SurfaceTexture) {
+                        return
+                    }
+                    if (origin_preview_camera != null && origin_preview_camera == param.thisObject) {
+                        param.args[0] = fake_SurfaceTexture
+                        return
+                    }
+
+                    origin_preview_camera = param.thisObject as Camera
+                    original_c1_preview_SurfaceTexture = param.args[0] as SurfaceTexture
+
+                    fake_SurfaceTexture = if (fake_SurfaceTexture == null) {
+                        SurfaceTexture(10)
+                    } else {
+                        fake_SurfaceTexture!!.release()
+                        SurfaceTexture(10)
+                    }
+                    param.args[0] = fake_SurfaceTexture
+                }
             })
 
-
-//        // 支持bilibili摄像头替换
-//        XposedHelpers.findAndHookMethod("android.hardware.Camera", lpparam.classLoader, "setPreviewTexture",
-//            SurfaceTexture::class.java, object : XC_MethodHook() {
-//                @Throws(Throwable::class)
-//                override fun beforeHookedMethod(param: MethodHookParam) {
-//                    if (param.args[0] == null) {
-//                        return
-//                    }
-//                    if (param.args[0] == fake_SurfaceTexture) {
-//                        return
-//                    }
-//                    if (origin_preview_camera != null && origin_preview_camera == param.thisObject) {
-//                        param.args[0] = fake_SurfaceTexture
-//                        return
-//                    }
-//
-//                    origin_preview_camera = param.thisObject as Camera
-//                    original_c1_preview_SurfaceTexture = param.args[0] as SurfaceTexture
-//
-//                    fake_SurfaceTexture = if (fake_SurfaceTexture == null) {
-//                        SurfaceTexture(10)
-//                    } else {
-//                        fake_SurfaceTexture!!.release()
-//                        SurfaceTexture(10)
-//                    }
-//                    param.args[0] = fake_SurfaceTexture
-//                }
-//            })
-
-
-//        XposedHelpers.findAndHookMethod("android.hardware.Camera", lpparam.classLoader, "startPreview", object : XC_MethodHook() {
-//            override fun beforeHookedMethod(param: MethodHookParam?) {
-//                if(ijkMediaPlayer == null || !ijkMediaPlayer!!.isPlayable){
-//                    initializeTheStateAsWellAsThePlayer()
-//                }
-//                c1_camera_play()
-//            }
-//        })
+        XposedHelpers.findAndHookMethod("android.hardware.Camera", lpparam.classLoader, "startPreview", object : XC_MethodHook() {
+            override fun beforeHookedMethod(param: MethodHookParam?) {
+                c1_camera_play()
+            }
+        })
 
 
         XposedHelpers.findAndHookMethod(
@@ -173,7 +168,6 @@ class MainHook : IXposedHookLoadPackage {
                         if (!surfaceInfo.contains("Surface(name=null)")) {
                             if(original_preview_Surface != param.args[0] as Surface ){
                                 original_preview_Surface = param.args[0] as Surface
-                                Toast.makeText(context, "找到original_preview_Surface", Toast.LENGTH_SHORT).show()
                             }
                         }
                     }
@@ -183,13 +177,6 @@ class MainHook : IXposedHookLoadPackage {
         XposedHelpers.findAndHookMethod("android.hardware.camera2.CaptureRequest.Builder", lpparam.classLoader, "build",object :XC_MethodHook(){
             @Throws(Throwable::class)
             override fun beforeHookedMethod(param: MethodHookParam) {
-//                if(param.thisObject != null && param.thisObject != c2_builder){
-//                    c2_builder = param.thisObject as CaptureRequest.Builder
-////                    if(ijkMediaPlayer == null || !ijkMediaPlayer!!.isPlayable){
-////                        initializeTheStateAsWellAsThePlayer()
-////                    }
-//                    ijkplay_play()
-//                }
                 ijkplay_play()
             }
         })

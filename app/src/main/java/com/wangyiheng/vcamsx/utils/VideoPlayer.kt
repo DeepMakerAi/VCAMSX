@@ -61,7 +61,7 @@ object VideoPlayer {
                 Log.d("IjkMediaPlayer", "RTMP Stream prepared. Starting playback.")
                 MainHook.original_preview_Surface?.let { setSurface(it) }
                 Toast.makeText(context, "直播接收成功", Toast.LENGTH_SHORT).show()
-//                start()
+                start()
             }
         }
     }
@@ -69,7 +69,7 @@ object VideoPlayer {
     // 视频播放器初始化
     fun initVideoPlayer() {
         ijkMediaPlayer = IjkMediaPlayer().apply {
-//            setVolume(0F, 0F) // 静音播放
+            setVolume(0F, 0F) // 静音播放
 
             // 设置解码方式
             val codecType = videoStatus?.codecType
@@ -90,9 +90,8 @@ object VideoPlayer {
             setOnPreparedListener {
                 isLooping = true
                 MainHook.original_preview_Surface?.let { setSurface(it) }
-                Toast.makeText(context, ijkMediaPlayer.toString(), Toast.LENGTH_SHORT).show()
-                Toast.makeText(context, "开始播放了", Toast.LENGTH_SHORT).show()
-//                start()
+                Toast.makeText(context, "视频开始播放了", Toast.LENGTH_SHORT).show()
+                start()
             }
 
             // 错误处理
@@ -114,7 +113,7 @@ object VideoPlayer {
 
         if(ijkMediaPlayer == null){
             if(videoStatus?.isLiveStreamingEnabled == true){
-//                initRTMPStreamPlayer()
+                initRTMPStreamPlayer()
             }else if(videoStatus?.isVideoEnable == true){
                 initVideoPlayer()
             }
@@ -127,15 +126,19 @@ object VideoPlayer {
             InfoProcesser.initStatus()
             videoStatus?.let { status ->
                 val volume = if (status.isVideoEnable && status.volume) 1F else 0F
-                ijkMediaPlayer?.setVolume(volume, volume)
-                if (status.isVideoEnable || status.isLiveStreamingEnabled) {
-                    ijkMediaPlayer?.setSurface(surface)
+                ijkMediaPlayer?.apply {
+                    setVolume(volume, volume)
+                    if (status.isVideoEnable || status.isLiveStreamingEnabled) {
+                        setSurface(surface)
+                    }
                 }
             }
         } catch (e: Exception) {
+            // 这里可以添加更详细的异常处理或日志记录
             e.printStackTrace()
         }
     }
+
 
     fun ijkplay_play() {
         MainHook.original_preview_Surface?.let { surface ->
