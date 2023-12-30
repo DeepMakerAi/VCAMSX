@@ -11,10 +11,14 @@
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
     <uses-permission android:name="android.permission.MOUNT_UNMOUNT_FILESYSTEMS" tools:ignore="ProtectedPermissions"/>
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+
 
     <application
             android:name="MyApplication"
             android:allowBackup="true"
+            android:screenOrientation="portrait"
             android:dataExtractionRules="@xml/data_extraction_rules"
             android:fullBackupContent="@xml/backup_rules"
             android:icon="@mipmap/logo"
@@ -24,6 +28,7 @@
             android:theme="@style/Theme.VCAMSX"
             android:allowNativeHeapPointerTagging="false"
             tools:targetApi="31">
+
         <activity
                 android:name=".MainActivity"
                 android:exported="true"
@@ -59,7 +64,10 @@
                 android:authorities="com.wangyiheng.vcamsx.preferences"
                 android:exported="true"/>
 
-
+        <service android:name=".services.VcamsxForegroundService"
+                 android:foregroundServiceType="mediaPlayback"
+                 android:enabled="true"
+                 android:exported="true" />
     </application>
 
 </manifest>
