@@ -140,5 +140,8 @@ class HomeController: ViewModel(),KoinComponent {
         mediaPlayer?.release()
         mediaPlayer = null
     }
+
+
+
 }
 

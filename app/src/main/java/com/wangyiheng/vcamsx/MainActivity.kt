@@ -27,11 +27,11 @@ class MainActivity : ComponentActivity() {
     }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        if (areNotificationsEnabled()) {
-            startForegroundService()
-        } else {
-            openNotificationSettings()
-        }
+//        if (areNotificationsEnabled()) {
+//            startForegroundService()
+//        } else {
+//            openNotificationSettings()
+//        }
         setContent {
             VCAMSXTheme {
                 // A surface container using the 'background' color from the theme
