@@ -2,6 +2,7 @@ package com.wangyiheng.vcamsx.components
 
 import android.content.Context
 import android.widget.Toast
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Switch
@@ -18,9 +19,9 @@ fun SettingRow(
     onCheckedChange: (Boolean) -> Unit,
     context: Context
 ) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.fillMaxWidth()
+    Row(verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Text(text = label, modifier = Modifier.weight(1f))
         Switch(

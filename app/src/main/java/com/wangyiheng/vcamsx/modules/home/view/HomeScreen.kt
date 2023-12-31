@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.wangyiheng.vcamsx.components.LivePlayerDialog
 import com.wangyiheng.vcamsx.components.SettingRow
@@ -60,31 +61,15 @@ fun HomeScreen() {
             }
         }
     )
+    Card(modifier = Modifier.padding(16.dp).fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            TextField(
+                value = homeController.liveURL.value,
+                onValueChange = { homeController.liveURL.value = it },
+                label = { Text("RTMP链接：") }
+            )
 
-    Box(
-        modifier = Modifier.fillMaxSize().background(Color(255,255,255,1)),
-        contentAlignment = Alignment.Center,
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-//            modifier = Modifier.width(150.dp)
-        ) {
-            // 使按钮宽度等于列的最大宽度
-            Column {
-                TextField(
-                    value = homeController.liveURL.value,
-                    onValueChange = { homeController.liveURL.value = it },
-                    label = { Text("RTMP链接：") }
-                )
-
-                // 可选：显示输入的链接
-                Text(homeController.liveURL.value)
-            }
-
-            LivePlayerDialog(homeController)
-            VideoPlayerDialog(homeController, context, videoPath)
             Button(
-                modifier = Modifier.fillMaxWidth(),
                 onClick = {
                     requestPermissionLauncher.launch(Manifest.permission.READ_EXTERNAL_STORAGE)
 
@@ -92,8 +77,8 @@ fun HomeScreen() {
             ) {
                 Text("选择视频")
             }
+
             Button(
-                modifier = Modifier.fillMaxWidth(),
                 onClick = {
                     homeController.isVideoDisplay.value = true
                 }
@@ -102,7 +87,6 @@ fun HomeScreen() {
             }
 
             Button(
-                modifier = Modifier.fillMaxWidth(),
                 onClick = {
                     homeController.isLiveStreamingDisplay.value = true
                 }
@@ -138,6 +122,8 @@ fun HomeScreen() {
                 context = context
             )
         }
+        LivePlayerDialog(homeController)
+        VideoPlayerDialog(homeController, context, videoPath)
     }
 }
 
