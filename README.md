@@ -4,7 +4,7 @@
 ## 使用演示
 - https://fastly.jsdelivr.net/gh/iiheng/TuChuang@main/1700961311425EasyGIF-1700961287297.gif
 ## 开发计划
-- [ ] 支持rtmp传输直播,提高稳定性
+- [x] 支持rtmp传输直播,提高稳定性
 - [ ] 支持视频提前选择，自定义播放顺序
 ## 开发环境
 - Android SDK 34
