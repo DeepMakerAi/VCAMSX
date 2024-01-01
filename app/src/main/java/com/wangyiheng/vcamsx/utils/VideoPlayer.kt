@@ -1,17 +1,22 @@
 package com.wangyiheng.vcamsx.utils
 
+import android.media.MediaPlayer
 import android.net.Uri
 import android.util.Log
 import android.view.Surface
 import android.widget.Toast
 import com.wangyiheng.vcamsx.MainHook
+import com.wangyiheng.vcamsx.MainHook.Companion.c2_reader_Surfcae
 import com.wangyiheng.vcamsx.MainHook.Companion.context
 import com.wangyiheng.vcamsx.MainHook.Companion.original_c1_preview_SurfaceTexture
+import com.wangyiheng.vcamsx.MainHook.Companion.original_preview_Surface
 import com.wangyiheng.vcamsx.utils.InfoProcesser.videoStatus
 import tv.danmaku.ijk.media.player.IjkMediaPlayer
 
 object VideoPlayer {
     var ijkMediaPlayer: IjkMediaPlayer? = null
+    var c3_player: MediaPlayer? = null
+    var copyReaderSurface:Surface? = null
     // 公共配置方法
     private fun configureMediaPlayer(mediaPlayer: IjkMediaPlayer) {
         mediaPlayer.apply {
@@ -59,7 +64,7 @@ object VideoPlayer {
             // 准备好后的操作
             setOnPreparedListener {
                 Log.d("IjkMediaPlayer", "RTMP Stream prepared. Starting playback.")
-                MainHook.original_preview_Surface?.let { setSurface(it) }
+                original_preview_Surface?.let { setSurface(it) }
                 Toast.makeText(context, "直播接收成功", Toast.LENGTH_SHORT).show()
                 start()
             }
@@ -89,7 +94,7 @@ object VideoPlayer {
             // 准备好后的操作
             setOnPreparedListener {
                 isLooping = true
-                MainHook.original_preview_Surface?.let { setSurface(it) }
+                original_preview_Surface?.let { setSurface(it) }
                 Toast.makeText(context, "视频开始播放了", Toast.LENGTH_SHORT).show()
                 start()
             }
@@ -123,6 +128,7 @@ object VideoPlayer {
 
     private fun handleMediaPlayer(surface: Surface) {
         try {
+            Log.d("vcamsx","开始投屏")
             InfoProcesser.initStatus()
             videoStatus?.let { status ->
                 val volume = if (status.isVideoEnable && status.volume) 1F else 0F
@@ -141,17 +147,61 @@ object VideoPlayer {
 
 
     fun ijkplay_play() {
-        MainHook.original_preview_Surface?.let { surface ->
+        original_preview_Surface?.let { surface ->
             handleMediaPlayer(surface)
         }
+
+        Log.d("vcamsx", c2_reader_Surfcae.toString())
+        c2_reader_Surfcae?.let { surface ->
+            c2_reader_play(surface)
+        }
+
     }
 
     fun c1_camera_play() {
         if (original_c1_preview_SurfaceTexture != null && videoStatus?.isVideoEnable == true) {
-            MainHook.original_preview_Surface = Surface(original_c1_preview_SurfaceTexture)
-            if(MainHook.original_preview_Surface!!.isValid == true){
-                handleMediaPlayer(MainHook.original_preview_Surface!!)
+            original_preview_Surface = Surface(original_c1_preview_SurfaceTexture)
+            if(original_preview_Surface!!.isValid == true){
+                handleMediaPlayer(original_preview_Surface!!)
             }
+        }
+
+        c2_reader_Surfcae?.let { surface ->
+            c2_reader_play(surface)
+        }
+
+    }
+
+    fun c2_reader_play(c2_reader_Surfcae:Surface){
+
+        if(c2_reader_Surfcae == copyReaderSurface){
+            return
+        }
+        copyReaderSurface = c2_reader_Surfcae
+
+        if (c3_player == null) {
+            c3_player = MediaPlayer()
+        } else {
+            c3_player!!.release()
+            c3_player = MediaPlayer()
+        }
+        c3_player!!.setVolume(0f, 0f)
+        c3_player!!.setSurface(c2_reader_Surfcae)
+
+        c3_player!!.setLooping(true)
+
+
+        try {
+            c3_player!!.setOnPreparedListener {
+                c3_player!!.start()
+            }
+            val videoUrl = "content://com.wangyiheng.vcamsx.videoprovider"
+            val videoPathUri = Uri.parse(videoUrl)
+            c3_player!!.setVolume(0f, 0f)
+            c3_player!!.setDataSource(context, videoPathUri)
+            c3_player!!.prepare()
+        } catch (e: java.lang.Exception) {
+            e.printStackTrace()
         }
     }
 

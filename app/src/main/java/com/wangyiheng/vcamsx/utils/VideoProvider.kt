@@ -15,6 +15,8 @@ import java.io.IOException
 class VideoProvider : ContentProvider() {
 
     override fun openFile(uri: Uri, mode: String): ParcelFileDescriptor? {
+        val readerContent = extractContent(uri.toString())
+        Log.d("vcamsx", "内容"+readerContent)
         // 获取外部文件目录
         val externalFilesDir = context?.getExternalFilesDir(null)?.absolutePath ?: return null
 
@@ -35,6 +37,21 @@ class VideoProvider : ContentProvider() {
                 return null
             }
         }
+//
+//        if(readerContent == "reader.mp4"){
+//            try {
+//                // 使用 try-with-resources 语句确保资源被正确关闭
+//                context?.resources?.openRawResource(R.raw.yi)?.use { inputStream ->
+//                    FileOutputStream(vcamsxFile).use { fileOutputStream ->
+//                        inputStream.copyTo(fileOutputStream)
+//                    }
+//                }
+//            } catch (e: IOException) {
+//                e.printStackTrace()
+//                return null
+//            }
+//        }
+
 
         // 返回文件的 ParcelFileDescriptor，设置为只读模式
         return ParcelFileDescriptor.open(vcamsxFile, ParcelFileDescriptor.MODE_READ_ONLY)
@@ -47,16 +64,17 @@ class VideoProvider : ContentProvider() {
         return true
     }
 
-    fun extractContent(url: String): String? {
+    fun extractContent(url: String): String {
         val prefix = "com.wangyiheng.vcamsx.videoprovider/"
         val index = url.indexOf(prefix)
 
         return if (index != -1) {
             url.substring(index + prefix.length)
         } else {
-            null
+            ""
         }
     }
+
     override fun query(uri: Uri, projection: Array<String>?, selection: String?, selectionArgs: Array<String>?, sortOrder: String?): Cursor {
         // 创建MatrixCursor
         val cursor = MatrixCursor(arrayOf("_id", "display_name", "size", "date_modified","file"))

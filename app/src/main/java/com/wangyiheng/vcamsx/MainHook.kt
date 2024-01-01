@@ -4,28 +4,20 @@ import android.app.Application
 import android.content.Context
 import android.graphics.SurfaceTexture
 import android.hardware.Camera
+import android.hardware.camera2.CameraCaptureSession
 import android.hardware.camera2.CameraDevice
 import android.hardware.camera2.CaptureRequest
-import android.net.Uri
 import android.os.Handler
 import android.util.Log
 import android.view.Surface
-import android.widget.Toast
 import cn.dianbobo.dbb.util.HLog
-import com.wangyiheng.vcamsx.data.models.VideoStatues
-import com.wangyiheng.vcamsx.utils.InfoManager
-import com.wangyiheng.vcamsx.utils.InfoProcesser.initStatus
-import com.wangyiheng.vcamsx.utils.InfoProcesser.videoStatus
 import com.wangyiheng.vcamsx.utils.VideoPlayer.c1_camera_play
 import com.wangyiheng.vcamsx.utils.VideoPlayer.ijkMediaPlayer
 import com.wangyiheng.vcamsx.utils.VideoPlayer.ijkplay_play
-import com.wangyiheng.vcamsx.utils.VideoPlayer.initRTMPStreamPlayer
-import com.wangyiheng.vcamsx.utils.VideoPlayer.initVideoPlayer
 import com.wangyiheng.vcamsx.utils.VideoPlayer.initializeTheStateAsWellAsThePlayer
 import de.robv.android.xposed.*
 import de.robv.android.xposed.callbacks.XC_LoadPackage
 import kotlinx.coroutines.*
-import tv.danmaku.ijk.media.player.IjkMediaPlayer
 import java.util.*
 
 
@@ -44,12 +36,15 @@ class MainHook : IXposedHookLoadPackage {
         var original_preview_Surface: Surface? = null
         var original_c1_preview_SurfaceTexture:SurfaceTexture? = null
         var isPlaying:Boolean = false
-
+        var needRecreate: Boolean = false
+        var c2VirtualSurfaceTexture: SurfaceTexture? = null
+        var c2_reader_Surfcae: Surface? = null
     }
 
     private var c2_virtual_surface: Surface? = null
     private var c2_state_callback_class: Class<*>? = null
     private var c2_state_callback: CameraDevice.StateCallback? = null
+
     // Xposed模块中
     override fun handleLoadPackage(lpparam: XC_LoadPackage.LoadPackageParam) {
         if(lpparam.packageName == "com.wangyiheng.vcamsx"){
@@ -84,8 +79,6 @@ class MainHook : IXposedHookLoadPackage {
                 }
             }
         )
-
-
 
         // 支持bilibili摄像头替换
         XposedHelpers.findAndHookMethod("android.hardware.Camera", lpparam.classLoader, "setPreviewTexture",
@@ -151,7 +144,23 @@ class MainHook : IXposedHookLoadPackage {
         XposedHelpers.findAndHookMethod(c2StateCallbackClass, "onOpened", CameraDevice::class.java, object : XC_MethodHook() {
             @Throws(Throwable::class)
             override fun beforeHookedMethod(param: MethodHookParam) {
+                needRecreate = true
+                createVirtualSurface()
+
+                c2_reader_Surfcae = null
                 original_preview_Surface = null
+
+                if(lpparam.packageName != "com.ss.android.ugc.aweme" ){
+                    XposedHelpers.findAndHookMethod(param.args[0].javaClass, "createCaptureSession", List::class.java, CameraCaptureSession.StateCallback::class.java, Handler::class.java, object : XC_MethodHook() {
+                        @Throws(Throwable::class)
+                        override fun beforeHookedMethod(paramd: MethodHookParam) {
+                            if (paramd.args[0] != null) {
+                                paramd.args[0] = listOf(c2_virtual_surface)
+                            }
+                        }
+                    })
+                }
+
             }
         })
 
@@ -169,6 +178,13 @@ class MainHook : IXposedHookLoadPackage {
                             if(original_preview_Surface != param.args[0] as Surface ){
                                 original_preview_Surface = param.args[0] as Surface
                             }
+                        }else{
+                            if(c2_reader_Surfcae == null && lpparam.packageName != "com.ss.android.ugc.aweme"){
+                                c2_reader_Surfcae = param.args[0] as Surface
+                            }
+                        }
+                        if(lpparam.packageName != "com.ss.android.ugc.aweme"){
+                            param.args[0] = c2_virtual_surface
                         }
                     }
                 }
@@ -180,6 +196,24 @@ class MainHook : IXposedHookLoadPackage {
                 ijkplay_play()
             }
         })
+    }
+
+    private fun createVirtualSurface(): Surface? {
+        if (needRecreate) {
+            c2VirtualSurfaceTexture?.release()
+            c2VirtualSurfaceTexture = null
+
+            c2_virtual_surface?.release()
+            c2_virtual_surface = null
+
+            c2VirtualSurfaceTexture = SurfaceTexture(15)
+            c2_virtual_surface = Surface(c2VirtualSurfaceTexture)
+            needRecreate = false
+        } else if (c2_virtual_surface == null) {
+            needRecreate = true
+            c2_virtual_surface = createVirtualSurface()
+        }
+        return c2_virtual_surface
     }
 }
 
