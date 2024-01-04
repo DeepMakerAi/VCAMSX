@@ -14,6 +14,7 @@ import com.wangyiheng.vcamsx.utils.InfoProcesser.videoStatus
 import tv.danmaku.ijk.media.player.IjkMediaPlayer
 
 object VideoPlayer {
+    var c2_hw_decode_obj: VideoToFrames? = null
     var ijkMediaPlayer: IjkMediaPlayer? = null
     var c3_player: MediaPlayer? = null
     var copyReaderSurface:Surface? = null
@@ -177,31 +178,24 @@ object VideoPlayer {
         if(c2_reader_Surfcae == copyReaderSurface){
             return
         }
+
         copyReaderSurface = c2_reader_Surfcae
 
-        if (c3_player == null) {
-            c3_player = MediaPlayer()
-        } else {
-            c3_player!!.release()
-            c3_player = MediaPlayer()
+        if(c2_hw_decode_obj != null){
+            c2_hw_decode_obj!!.stopDecode()
+            c2_hw_decode_obj = null
         }
-        c3_player!!.setVolume(0f, 0f)
-        c3_player!!.setSurface(c2_reader_Surfcae)
 
-        c3_player!!.setLooping(true)
-
-
+        c2_hw_decode_obj = VideoToFrames()
         try {
-            c3_player!!.setOnPreparedListener {
-                c3_player!!.start()
-            }
             val videoUrl = "content://com.wangyiheng.vcamsx.videoprovider"
             val videoPathUri = Uri.parse(videoUrl)
-            c3_player!!.setVolume(0f, 0f)
-            c3_player!!.setDataSource(context, videoPathUri)
-            c3_player!!.prepare()
-        } catch (e: java.lang.Exception) {
-            e.printStackTrace()
+            c2_hw_decode_obj!!.setSaveFrames(OutputImageFormat.NV21)
+            c2_hw_decode_obj!!.set_surface(c2_reader_Surfcae!!)
+            c2_hw_decode_obj!!.decode(videoPathUri)
+
+        }catch (e:Exception){
+            Log.d("dbb",e.toString())
         }
     }
 

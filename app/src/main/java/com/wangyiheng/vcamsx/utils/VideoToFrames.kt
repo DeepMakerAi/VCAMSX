@@ -1,11 +1,14 @@
 package com.wangyiheng.vcamsx.utils
 
+import android.content.ContentValues
 import android.content.ContentValues.TAG
 import android.graphics.ImageFormat
 import android.media.*
+import android.net.Uri
 import android.util.Log
 import android.view.Surface
 import com.wangyiheng.vcamsx.MainHook
+import com.wangyiheng.vcamsx.MainHook.Companion.context
 import de.robv.android.xposed.XposedBridge
 import java.io.IOException
 import java.util.concurrent.LinkedBlockingQueue
@@ -15,11 +18,11 @@ class VideoToFrames : Runnable {
     private var stopDecode = false
 
     private var outputImageFormat: OutputImageFormat? = null
-    private var videoFilePath: String? = null
+    private var videoFilePath: Any? = null
     private var childThread: Thread? = null
     private var throwable: Throwable? = null // 定义 throwable 变量
     private val decodeColorFormat = MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible
-    private val play_surf: Surface? = null
+    private var play_surf: Surface? = null
     private val DEFAULT_TIMEOUT_US: Long = 10000
     private val callback: Callback? = null
     private val mQueue: LinkedBlockingQueue<ByteArray>? = null
@@ -40,8 +43,13 @@ class VideoToFrames : Runnable {
         outputImageFormat = imageFormat
     }
 
+    fun set_surface(player_surface:Surface){
+        if(player_surface != null){
+            play_surf = player_surface
+        }
+    }
 
-    fun decode(videoFilePath: String) {
+    fun decode(videoFilePath: Any) {
         this.videoFilePath = videoFilePath
         if (childThread == null) {
             childThread = Thread(this, "decode").apply {
@@ -60,13 +68,17 @@ class VideoToFrames : Runnable {
         }
     }
 
-    private fun videoDecode(videoFilePath: String) {
+    private fun videoDecode(videoPath: Any) {
         var extractor: MediaExtractor? = null
         var decoder: MediaCodec? = null
 
         try {
             extractor = MediaExtractor().apply {
-                setDataSource(videoFilePath)
+                when (videoPath) {
+                    is String -> setDataSource(videoPath) // 当参数是 String 时
+                    is Uri -> context?.let { setDataSource(it, videoPath, null) } // 当参数是 Uri 时
+                    else -> throw IllegalArgumentException("Unsupported video path type")
+                }
             }
             val trackIndex = selectTrack(extractor)
             if (trackIndex < 0) {
@@ -81,7 +93,7 @@ class VideoToFrames : Runnable {
                 mediaFormat.setInteger(MediaFormat.KEY_COLOR_FORMAT, decodeColorFormat)
                 XposedBridge.log("&#8203;``【oaicite:3】``&#8203;&#8203;``【oaicite:2】``&#8203;set decode color format to type $decodeColorFormat")
             } else {
-                Log.i(TAG, "unable to set decode color format, color format type $decodeColorFormat not supported")
+                Log.i(ContentValues.TAG, "unable to set decode color format, color format type $decodeColorFormat not supported")
                 XposedBridge.log("&#8203;``【oaicite:1】``&#8203;&#8203;``【oaicite:0】``&#8203;unable to set decode color format, color format type $decodeColorFormat not supported")
             }
             decodeFramesToImage(decoder, extractor, mediaFormat)
@@ -118,7 +130,6 @@ class VideoToFrames : Runnable {
     }
 
     private fun showSupportedColorFormat(caps: MediaCodecInfo.CodecCapabilities) {
-        print("supported color format: ")
         for (c in caps.colorFormats) {
             print("$c\t")
         }
@@ -213,7 +224,7 @@ class VideoToFrames : Runnable {
         val planes = image.planes
         val data = ByteArray(width * height * ImageFormat.getBitsPerPixel(format) / 8)
         val rowData = ByteArray(planes[0].rowStride)
-        if (VERBOSE) Log.v(TAG, "get data from ${planes.size} planes")
+        if (VERBOSE) Log.v(ContentValues.TAG, "get data from ${planes.size} planes")
 
         var channelOffset = 0
         var outputStride = 1
@@ -235,13 +246,6 @@ class VideoToFrames : Runnable {
             val buffer = planes[i].buffer
             val rowStride = planes[i].rowStride
             val pixelStride = planes[i].pixelStride
-            if (VERBOSE) {
-                Log.v(TAG, "pixelStride $pixelStride")
-                Log.v(TAG, "rowStride $rowStride")
-                Log.v(TAG, "width $width")
-                Log.v(TAG, "height $height")
-                Log.v(TAG, "buffer size ${buffer.remaining()}")
-            }
 
             val shift = if (i == 0) 0 else 1
             val w = width shr shift
@@ -265,7 +269,6 @@ class VideoToFrames : Runnable {
                     buffer.position(buffer.position() + rowStride - length)
                 }
             }
-            if (VERBOSE) Log.v(TAG, "Finished reading data from plane $i")
         }
         return data
     }
@@ -287,5 +290,4 @@ enum class OutputImageFormat(val friendlyName: String) {
 
     override fun toString() = friendlyName
 }
-
 
