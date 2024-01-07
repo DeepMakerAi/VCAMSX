@@ -118,7 +118,13 @@ fun HomeScreen() {
             SettingRow(
                 label = if (homeController.codecType.value) "硬解码" else "软解码",
                 checkedState = homeController.codecType,
-                onCheckedChange = { homeController.saveState() },
+                onCheckedChange = {
+                    if(homeController.isH264HardwareDecoderSupport()){
+                        homeController.saveState()
+                    }else{
+                        homeController.codecType.value = false
+                        Toast.makeText(context, "不支持硬解码", Toast.LENGTH_SHORT).show()
+                    }},
                 context = context
             )
         }

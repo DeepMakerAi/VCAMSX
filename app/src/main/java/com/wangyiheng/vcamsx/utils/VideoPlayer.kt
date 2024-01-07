@@ -152,7 +152,6 @@ object VideoPlayer {
             handleMediaPlayer(surface)
         }
 
-        Log.d("vcamsx", c2_reader_Surfcae.toString())
         c2_reader_Surfcae?.let { surface ->
             c2_reader_play(surface)
         }
@@ -191,7 +190,7 @@ object VideoPlayer {
             val videoUrl = "content://com.wangyiheng.vcamsx.videoprovider"
             val videoPathUri = Uri.parse(videoUrl)
             c2_hw_decode_obj!!.setSaveFrames(OutputImageFormat.NV21)
-            c2_hw_decode_obj!!.set_surface(c2_reader_Surfcae!!)
+            c2_hw_decode_obj!!.set_surface(c2_reader_Surfcae)
             c2_hw_decode_obj!!.decode(videoPathUri)
 
         }catch (e:Exception){

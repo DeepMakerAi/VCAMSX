@@ -1,6 +1,7 @@
 package com.wangyiheng.vcamsx.modules.home.controllers
 
 import android.content.Context
+import android.media.MediaCodecList
 import android.net.Uri
 import android.util.Log
 import android.view.SurfaceHolder
@@ -20,13 +21,11 @@ class HomeController: ViewModel(),KoinComponent {
     val isVideoEnabled  = mutableStateOf(false)
     val isVolumeEnabled = mutableStateOf(false)
     val videoPlayer = mutableStateOf(1)
-    val codecType = mutableStateOf(true)
+    val codecType = mutableStateOf(false)
     val isLiveStreamingEnabled = mutableStateOf(false)
 
     val infoManager by inject<InfoManager>()
     var mediaPlayer: IjkMediaPlayer? = null
-    private var retryCount = 0
-    private val maxRetryCount = 5
     val isLiveStreamingDisplay =  mutableStateOf(false)
     val isVideoDisplay =  mutableStateOf(false)
 //    rtmp://ns8.indexforce.com/home/mystream
@@ -141,7 +140,23 @@ class HomeController: ViewModel(),KoinComponent {
         mediaPlayer = null
     }
 
+    fun isH264HardwareDecoderSupport(): Boolean {
+        val codecList = MediaCodecList(MediaCodecList.ALL_CODECS)
+        val codecInfos = codecList.codecInfos
+        for (codecInfo in codecInfos) {
+            if (!codecInfo.isEncoder && codecInfo.name.contains("avc") && !isSoftwareCodec(codecInfo.name)) {
+                return true
+            }
+        }
+        return false
+    }
 
-
+    fun isSoftwareCodec(codecName: String): Boolean {
+        return when {
+            codecName.startsWith("OMX.google.") -> true
+            codecName.startsWith("OMX.") -> false
+            else -> true
+        }
+    }
 }
 
