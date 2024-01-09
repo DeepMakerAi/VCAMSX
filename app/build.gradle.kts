@@ -60,7 +60,7 @@ dependencies {
 
 // Bill of Materials (BOM) for all Compose libraries, ensures compatible versions
     implementation(platform("androidx.compose:compose-bom:2023.03.00"))
-    implementation ("com.contrarywind:Android-PickerView:latest.release")
+    implementation ("com.contrarywind:Android-PickerView:4.1.9")
 // Compose UI framework
     implementation("androidx.compose.ui:ui")
 

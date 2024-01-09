@@ -6,6 +6,7 @@ import android.util.Log
 import android.view.Surface
 import android.widget.Toast
 import com.wangyiheng.vcamsx.MainHook
+import com.wangyiheng.vcamsx.MainHook.Companion.TAG
 import com.wangyiheng.vcamsx.MainHook.Companion.c2_reader_Surfcae
 import com.wangyiheng.vcamsx.MainHook.Companion.context
 import com.wangyiheng.vcamsx.MainHook.Companion.original_c1_preview_SurfaceTexture
@@ -65,7 +66,6 @@ object VideoPlayer {
 
             // 准备好后的操作
             setOnPreparedListener {
-                Log.d("IjkMediaPlayer", "RTMP Stream prepared. Starting playback.")
                 original_preview_Surface?.let { setSurface(it) }
                 Toast.makeText(context, "直播接收成功", Toast.LENGTH_SHORT).show()
                 start()
@@ -75,22 +75,15 @@ object VideoPlayer {
 
 
     fun initMediaPlayer(surface:Surface){
+        val volume = if (videoStatus?.volume == true) 1F else 0F
         mediaPlayer = MediaPlayer().apply {
             isLooping = true
-            setOnPreparedListener {
-                start()
-            }
-
-            val videoPathUri = Uri.parse("content://com.wangyiheng.vcamsx.videoprovider")
-            context?.let { mediaPlayer!!.setDataSource(it, videoPathUri) }
-
             setSurface(surface)
+            setVolume(volume,volume)
+            setOnPreparedListener { start() }
+            val videoPathUri = Uri.parse("content://com.wangyiheng.vcamsx.videoprovider")
+            context?.let { setDataSource(it, videoPathUri) }
             prepare()
-
-            setOnErrorListener { mp, what, extra ->
-                Toast.makeText(context, "报错了", Toast.LENGTH_SHORT).show()
-                true // Return true if the error was handled, false otherwise.
-            }
         }
     }
 
@@ -115,15 +108,20 @@ object VideoPlayer {
 
             videoStatus?.let { status ->
                 val volume = if (status.isVideoEnable && status.volume) 1F else 0F
+                if(status.isLiveStreamingEnabled){
+                    ijkMediaPlayer?.apply {
+                        setVolume(volume, volume)
+                        setSurface(surface)
+                    }
+                }else{
+                    releaseMediaPlayer()
+                    // 播放器存在就播放视频，不存在就创建播放器重新播放
+                    mediaPlayer?.takeIf { it.isPlaying }?.apply {
+                        setVolume(volume, volume)
+                        setSurface(surface)
+                    } ?: initMediaPlayer(surface)
+                }
 
-                // 释放重置播放器
-                releaseMediaPlayer()
-
-                // 播放器存在就播放视频，不存在就创建播放器重新播放
-                mediaPlayer?.takeIf { it.isPlaying }?.apply {
-                    setVolume(volume, volume)
-                    setSurface(surface)
-                } ?: initMediaPlayer(surface)
             }
         } catch (e: Exception) {
             // 这里可以添加更详细的异常处理或日志记录
@@ -132,6 +130,7 @@ object VideoPlayer {
     }
 
     fun releaseMediaPlayer(){
+        if(mediaPlayer == null)return
         mediaPlayer?.stop()
         mediaPlayer?.release()
         mediaPlayer = null

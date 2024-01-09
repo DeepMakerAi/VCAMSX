@@ -22,11 +22,12 @@ import java.util.*
 
 
 class MainHook : IXposedHookLoadPackage {
-    val TAG = "vcamsx"
+
 
     var contextUnhook:XC_MethodHook.Unhook ? = null
 
     companion object {
+        val TAG = "vcamsx"
         @Volatile
         var data_buffer = byteArrayOf(0)
         var context: Context? = null
