@@ -16,6 +16,7 @@ import tv.danmaku.ijk.media.player.IjkMediaPlayer
 object VideoPlayer {
     var c2_hw_decode_obj: VideoToFrames? = null
     var ijkMediaPlayer: IjkMediaPlayer? = null
+    var mediaPlayer: MediaPlayer? = null
     var c3_player: MediaPlayer? = null
     var copyReaderSurface:Surface? = null
     // 公共配置方法
@@ -72,47 +73,28 @@ object VideoPlayer {
         }
     }
 
-    // 视频播放器初始化
-    fun initVideoPlayer() {
-        ijkMediaPlayer = IjkMediaPlayer().apply {
-            setVolume(0F, 0F) // 静音播放
 
-            // 设置解码方式
-            val codecType = videoStatus?.codecType
-            val mediaCodecOption = if (codecType == true) 1L else 0L
-            setOption(IjkMediaPlayer.OPT_CATEGORY_PLAYER, "mediacodec", mediaCodecOption)
-
-            // 其他播放器配置
-            setOption(IjkMediaPlayer.OPT_CATEGORY_FORMAT, "probsize", 4096)
-            setOption(IjkMediaPlayer.OPT_CATEGORY_FORMAT, "max-buffer-size", 8192)
-            setOption(IjkMediaPlayer.OPT_CATEGORY_PLAYER, "framedrop", 1)
-            setOption(IjkMediaPlayer.OPT_CATEGORY_PLAYER, "packet-buffering", 0)
-            setOption(IjkMediaPlayer.OPT_CATEGORY_PLAYER, "min-frames", 2)
-
-            // 应用公共配置
-            configureMediaPlayer(this)
-
-            // 准备好后的操作
+    fun initMediaPlayer(surface:Surface){
+        mediaPlayer = MediaPlayer().apply {
+            isLooping = true
             setOnPreparedListener {
-                isLooping = true
-                original_preview_Surface?.let { setSurface(it) }
-                Toast.makeText(context, "视频开始播放了", Toast.LENGTH_SHORT).show()
                 start()
             }
 
-            // 错误处理
-            setOnErrorListener { _, what, extra ->
-                Log.d("vcamsx","报错了$what")
-                true // 已处理错误
-            }
+            val videoPathUri = Uri.parse("content://com.wangyiheng.vcamsx.videoprovider")
+            context?.let { mediaPlayer!!.setDataSource(it, videoPathUri) }
 
-            // 设置数据源
-            val videoUrl = "content://com.wangyiheng.vcamsx.videoprovider"
-            setDataSource(context, Uri.parse(videoUrl))
-            // 准备播放器
-            prepareAsync()
+            setSurface(surface)
+            prepare()
+
+            setOnErrorListener { mp, what, extra ->
+                Toast.makeText(context, "报错了", Toast.LENGTH_SHORT).show()
+                true // Return true if the error was handled, false otherwise.
+            }
         }
     }
+
+
 
     fun initializeTheStateAsWellAsThePlayer(){
         InfoProcesser.initStatus()
@@ -120,8 +102,6 @@ object VideoPlayer {
         if(ijkMediaPlayer == null){
             if(videoStatus?.isLiveStreamingEnabled == true){
                 initRTMPStreamPlayer()
-            }else if(videoStatus?.isVideoEnable == true){
-                initVideoPlayer()
             }
         }
     }
@@ -129,16 +109,21 @@ object VideoPlayer {
 
     private fun handleMediaPlayer(surface: Surface) {
         try {
-            Log.d("vcamsx","开始投屏")
+            // 数据初始化
             InfoProcesser.initStatus()
+            if(videoStatus?.isVideoEnable == false) return
+
             videoStatus?.let { status ->
                 val volume = if (status.isVideoEnable && status.volume) 1F else 0F
-                ijkMediaPlayer?.apply {
+
+                // 释放重置播放器
+                releaseMediaPlayer()
+
+                // 播放器存在就播放视频，不存在就创建播放器重新播放
+                mediaPlayer?.takeIf { it.isPlaying }?.apply {
                     setVolume(volume, volume)
-                    if (status.isVideoEnable || status.isLiveStreamingEnabled) {
-                        setSurface(surface)
-                    }
-                }
+                    setSurface(surface)
+                } ?: initMediaPlayer(surface)
             }
         } catch (e: Exception) {
             // 这里可以添加更详细的异常处理或日志记录
@@ -146,22 +131,29 @@ object VideoPlayer {
         }
     }
 
+    fun releaseMediaPlayer(){
+        mediaPlayer?.stop()
+        mediaPlayer?.release()
+        mediaPlayer = null
+    }
 
     fun ijkplay_play() {
+        // 带name的surface
         original_preview_Surface?.let { surface ->
             handleMediaPlayer(surface)
         }
 
+        // name=null的surface
         c2_reader_Surfcae?.let { surface ->
             c2_reader_play(surface)
         }
-
     }
 
     fun c1_camera_play() {
         if (original_c1_preview_SurfaceTexture != null && videoStatus?.isVideoEnable == true) {
             original_preview_Surface = Surface(original_c1_preview_SurfaceTexture)
             if(original_preview_Surface!!.isValid == true){
+
                 handleMediaPlayer(original_preview_Surface!!)
             }
         }
@@ -173,7 +165,6 @@ object VideoPlayer {
     }
 
     fun c2_reader_play(c2_reader_Surfcae:Surface){
-
         if(c2_reader_Surfcae == copyReaderSurface){
             return
         }
