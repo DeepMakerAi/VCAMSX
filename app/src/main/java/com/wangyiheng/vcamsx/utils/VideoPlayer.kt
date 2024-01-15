@@ -13,6 +13,9 @@ import com.wangyiheng.vcamsx.MainHook.Companion.original_c1_preview_SurfaceTextu
 import com.wangyiheng.vcamsx.MainHook.Companion.original_preview_Surface
 import com.wangyiheng.vcamsx.utils.InfoProcesser.videoStatus
 import tv.danmaku.ijk.media.player.IjkMediaPlayer
+import java.util.concurrent.Executors
+import java.util.concurrent.ScheduledExecutorService
+import java.util.concurrent.TimeUnit
 
 object VideoPlayer {
     var c2_hw_decode_obj: VideoToFrames? = null
@@ -20,12 +23,37 @@ object VideoPlayer {
     var mediaPlayer: MediaPlayer? = null
     var c3_player: MediaPlayer? = null
     var copyReaderSurface:Surface? = null
+    var currentRunningSurface:Surface? = null
+    private val scheduledExecutor: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor()
+    init {
+        // 初始化代码...
+        startTimerTask()
+    }
+
+    // 启动定时任务
+    private fun startTimerTask() {
+        scheduledExecutor.scheduleWithFixedDelay({
+            // 每五秒执行的代码
+            performTask()
+        }, 10, 10, TimeUnit.SECONDS)
+    }
+
+    // 实际执行的任务
+    private fun performTask() {
+        restartMediaPlayer()
+    }
+
+    fun restartMediaPlayer(){
+        if(videoStatus?.isVideoEnable == true || videoStatus?.isLiveStreamingEnabled == true) return
+        if(currentRunningSurface == null || currentRunningSurface?.isValid == false)return
+        releaseMediaPlayer()
+    }
+
     // 公共配置方法
     private fun configureMediaPlayer(mediaPlayer: IjkMediaPlayer) {
         mediaPlayer.apply {
             // 公共的错误监听器
             setOnErrorListener { _, what, extra ->
-                Log.e("IjkMediaPlayer", "Error occurred. What: $what, Extra: $extra")
                 Toast.makeText(context, "播放错误: $what", Toast.LENGTH_SHORT).show()
                 true
             }
@@ -54,6 +82,8 @@ object VideoPlayer {
             setOption(IjkMediaPlayer.OPT_CATEGORY_PLAYER, "flush_packets", 1L)
             setOption(IjkMediaPlayer.OPT_CATEGORY_PLAYER, "packet-buffering", 1L)
             setOption(IjkMediaPlayer.OPT_CATEGORY_PLAYER, "framedrop", 1L)
+
+            Toast.makeText(context, videoStatus!!.liveURL, Toast.LENGTH_SHORT).show()
 
             // 应用公共配置
             configureMediaPlayer(this)
@@ -104,11 +134,13 @@ object VideoPlayer {
         try {
             // 数据初始化
             InfoProcesser.initStatus()
-            if(videoStatus?.isVideoEnable == false) return
+            if(videoStatus?.isVideoEnable == false && videoStatus?.isLiveStreamingEnabled == false) return
 
             videoStatus?.let { status ->
-                val volume = if (status.isVideoEnable && status.volume) 1F else 0F
+                val volume = if (status.volume) 1F else 0F
+
                 if(status.isLiveStreamingEnabled){
+
                     ijkMediaPlayer?.apply {
                         setVolume(volume, volume)
                         setSurface(surface)

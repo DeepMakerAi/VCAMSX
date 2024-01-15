@@ -82,7 +82,6 @@ class VideoProvider : ContentProvider() {
         val file = File(path, "advancedModeMovies/654e1835b70883406c4640c3/caibi_60.mp4")
         // 获取视频文件夹路径
         cursor.addRow(arrayOf(0, file.name, file.length(), file.lastModified(),file))
-        Log.d("cursor", "query: ${file}")
 
         return cursor
     }
