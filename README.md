@@ -29,7 +29,6 @@
 5. 硬解码流畅于软解码,请根据你的手机型号来判断是否支持硬解码，软解码的适配性较高，视频基本都支持播放
 
 ## 反馈问题
-- QQ群：[点击加入](http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=BrFy3-Jidig08nnnSL1TkJ1-mq1pVTyl&authKey=l0r7NULDSHhc8hM4z9SrL7RDMTU%2BUerKNN8VsgUy4W7Fh0kq2sF5RcX7We610qRd&noverify=0&group_code=711762040)
 - Telegram : [点击加入](https://t.me/+WbEK_suGxG9mZGM1)
 - 在issues中反馈，如果为BUG反馈，请附带Xposed模块日志信息
 
