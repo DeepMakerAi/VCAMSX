@@ -45,7 +45,7 @@ object VideoPlayer {
 
     fun restartMediaPlayer(){
         if(videoStatus?.isVideoEnable == true || videoStatus?.isLiveStreamingEnabled == true) return
-        if(currentRunningSurface == null || currentRunningSurface?.isValid == false)return
+        if(currentRunningSurface == null || currentRunningSurface?.isValid == false) return
         releaseMediaPlayer()
     }
 
@@ -214,7 +214,6 @@ object VideoPlayer {
             c2_hw_decode_obj!!.setSaveFrames(OutputImageFormat.NV21)
             c2_hw_decode_obj!!.set_surface(c2_reader_Surfcae)
             c2_hw_decode_obj!!.decode(videoPathUri)
-
         }catch (e:Exception){
             Log.d("dbb",e.toString())
         }

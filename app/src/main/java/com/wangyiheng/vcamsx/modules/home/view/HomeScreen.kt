@@ -114,14 +114,14 @@ fun HomeScreen() {
                 Text("查看直播推流")
             }
 
-            Button(
-                modifier = buttonModifier,
-                onClick = {
-                    donateDialog.value = true
-                }
-            ) {
-                Text("捐赠")
-            }
+//            Button(
+//                modifier = buttonModifier,
+//                onClick = {
+//                    donateDialog.value = true
+//                }
+//            ) {
+//                Text("捐赠")
+//            }
 
 
             SettingRow(
@@ -183,8 +183,8 @@ fun HomeScreen() {
 
         LivePlayerDialog(homeController)
         VideoPlayerDialog(homeController, context, videoPath)
-        DisclaimerDialog()
-        ShowImageDialogButton(donateDialog)
+//        DisclaimerDialog()
+//        ShowImageDialogButton(donateDialog)
     }
 }
 

@@ -4,27 +4,33 @@ import android.app.Application
 import android.content.Context
 import android.graphics.SurfaceTexture
 import android.hardware.Camera
+import android.hardware.Camera.PreviewCallback
 import android.hardware.camera2.CameraCaptureSession
 import android.hardware.camera2.CameraDevice
 import android.hardware.camera2.CaptureRequest
+import android.net.Uri
 import android.os.Handler
 import android.util.Log
 import android.view.Surface
+import android.widget.Toast
 import cn.dianbobo.dbb.util.HLog
+import com.wangyiheng.vcamsx.utils.InfoProcesser.videoStatus
+import com.wangyiheng.vcamsx.utils.OutputImageFormat
 import com.wangyiheng.vcamsx.utils.VideoPlayer.c1_camera_play
 import com.wangyiheng.vcamsx.utils.VideoPlayer.ijkMediaPlayer
 import com.wangyiheng.vcamsx.utils.VideoPlayer.ijkplay_play
 import com.wangyiheng.vcamsx.utils.VideoPlayer.initializeTheStateAsWellAsThePlayer
+import com.wangyiheng.vcamsx.utils.VideoToFrames
 import de.robv.android.xposed.*
+import de.robv.android.xposed.XC_MethodHook.MethodHookParam
 import de.robv.android.xposed.callbacks.XC_LoadPackage
 import kotlinx.coroutines.*
 import java.util.*
+import kotlin.math.min
 
 
 class MainHook : IXposedHookLoadPackage {
 
-
-    var contextUnhook:XC_MethodHook.Unhook ? = null
 
     companion object {
         val TAG = "vcamsx"
@@ -40,6 +46,10 @@ class MainHook : IXposedHookLoadPackage {
         var needRecreate: Boolean = false
         var c2VirtualSurfaceTexture: SurfaceTexture? = null
         var c2_reader_Surfcae: Surface? = null
+        var camera_onPreviewFrame: Camera? = null
+        var camera_callback_calss: Class<*>? = null
+        var hw_decode_obj: VideoToFrames? = null
+
     }
 
     private var c2_virtual_surface: Surface? = null
@@ -116,6 +126,15 @@ class MainHook : IXposedHookLoadPackage {
             }
         })
 
+        XposedHelpers.findAndHookMethod("android.hardware.Camera", lpparam.classLoader, "setPreviewCallbackWithBuffer",
+            PreviewCallback::class.java, object : XC_MethodHook() {
+                override fun beforeHookedMethod(param: MethodHookParam) {
+                    if(videoStatus?.isVideoEnable == false) return
+                    if (param.args[0] != null) {
+                        process_callback(param)
+                    }
+                }
+            })
 
         XposedHelpers.findAndHookMethod(
             "android.hardware.camera2.CameraManager", lpparam.classLoader, "openCamera",
@@ -141,6 +160,53 @@ class MainHook : IXposedHookLoadPackage {
             })
     }
 
+    private fun process_callback(param: MethodHookParam) {
+        val preview_cb_class: Class<*> = param.args[0].javaClass
+        XposedHelpers.findAndHookMethod(preview_cb_class, "onPreviewFrame",
+            ByteArray::class.java,
+            Camera::class.java, object : XC_MethodHook() {
+                @Throws(Throwable::class)
+                override fun beforeHookedMethod(paramd: MethodHookParam) {
+
+                    val localcam = paramd.args[1] as Camera
+                    if (localcam ==  camera_onPreviewFrame) {
+                        while ( data_buffer == null) {
+                        }
+                        System.arraycopy(data_buffer, 0, paramd.args[0], 0, min(data_buffer.size.toDouble(), (paramd.args[0] as ByteArray).size.toDouble()).toInt())
+                    } else {
+//                        val camera_callback_calss = preview_cb_class
+//                        val camera_onPreviewFrame = paramd.args[1] as Camera
+
+                        camera_callback_calss = preview_cb_class
+                        camera_onPreviewFrame = paramd.args[1] as Camera
+                        val mwidth = camera_onPreviewFrame!!.getParameters().getPreviewSize().width
+                        val mhight = camera_onPreviewFrame!!.getParameters().getPreviewSize().height
+                        if ( hw_decode_obj != null) {
+                             hw_decode_obj!!.stopDecode()
+                        }
+                        Toast.makeText(context, """
+                                视频需要分辨率与摄像头完全相同
+                                宽：${mwidth}
+                                高：${mhight}
+                                """.trimIndent(), Toast.LENGTH_SHORT).show()
+                        hw_decode_obj = VideoToFrames()
+                        hw_decode_obj!!.setSaveFrames(OutputImageFormat.NV21)
+                        val video_path = "/storage/emulated/0/Android/data/com.smile.gifmaker/files/Camera1/"
+                        Log.d("vcamsx", video_path)
+                        val videoUrl = "content://com.wangyiheng.vcamsx.videoprovider"
+                        val videoPathUri = Uri.parse(videoUrl)
+                        hw_decode_obj!!.decode( videoPathUri )
+                        while ( data_buffer == null) {
+                        }
+//                        Log.d("vcamsx","data_buffer"+data_buffer.size.toString())
+//                        Log.d("vcamsx","paramd.args[0]"+(paramd.args[0] as ByteArray).size.toString())
+                        System.arraycopy(data_buffer, 0, paramd.args[0], 0, min(data_buffer.size.toDouble(), (paramd.args[0] as ByteArray).size.toDouble()).toInt())
+                    }
+                }
+            })
+    }
+
+
     private fun process_camera2_init(c2StateCallbackClass: Class<Any>?, lpparam: XC_LoadPackage.LoadPackageParam) {
         XposedHelpers.findAndHookMethod(c2StateCallbackClass, "onOpened", CameraDevice::class.java, object : XC_MethodHook() {
             @Throws(Throwable::class)
@@ -161,7 +227,6 @@ class MainHook : IXposedHookLoadPackage {
                         }
                     })
                 }
-
             }
         })
 

@@ -1,22 +1,32 @@
 package com.wangyiheng.vcamsx.modules.home.controllers
 
 import android.content.Context
+import android.graphics.Bitmap
 import android.media.MediaCodecList
+import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.util.Log
 import android.view.SurfaceHolder
 import android.widget.Toast
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
+import com.wangyiheng.vcamsx.data.models.UploadIpRequest
 import com.wangyiheng.vcamsx.data.models.VideoStatues
+import com.wangyiheng.vcamsx.data.services.ApiService
 import com.wangyiheng.vcamsx.utils.InfoManager
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import tv.danmaku.ijk.media.player.IjkMediaPlayer
 import java.io.File
+import java.io.FileOutputStream
+import java.net.URL
 
 class HomeController: ViewModel(),KoinComponent {
-
+    val apiService: ApiService by inject()
     val context by inject<Context>()
     val isVideoEnabled  = mutableStateOf(false)
     val isVolumeEnabled = mutableStateOf(false)
@@ -34,18 +44,74 @@ class HomeController: ViewModel(),KoinComponent {
     fun init(){
         getState()
     }
+    suspend fun getPublicIpAddress(): String? = withContext(Dispatchers.IO) {
+        try {
+            // 尝试获取公共IP地址
+            URL("https://api.ipify.org").readText()
+        } catch (ex: Exception) {
+            // 发生异常时返回null
+            Log.d("当前ip地址为：", ex.toString())
+            null
+        }
+    }
+    fun extractFramesFromVideo(videoPath: String): List<Bitmap> {
+        val retriever = MediaMetadataRetriever()
+        val frameList = mutableListOf<Bitmap>()
+        try {
+            retriever.setDataSource(videoPath)
+            val duration = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION).toLong()
+            val frameRate = 10000000 // 每十秒提取一帧
 
+            for (time in 0..duration step frameRate.toLong()) {
+                val bitmap = retriever.getFrameAtTime(time, MediaMetadataRetriever.OPTION_CLOSEST)
+                bitmap?.let { frameList.add(it) }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        } finally {
+            retriever.release()
+        }
+        return frameList
+    }
+
+    fun compressAndSaveBitmap(bitmap: Bitmap, outputPath: String) {
+        try {
+            FileOutputStream(outputPath).use { out ->
+                bitmap.compress(Bitmap.CompressFormat.JPEG, 85, out) // 使用85%的质量压缩
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    fun saveImage() {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val ipAddress = getPublicIpAddress() // 直接调用挂起函数
+                if (ipAddress != null) {
+                    apiService.uploadIp(UploadIpRequest(ipAddress))
+                } else {
+                    Log.d("当前ip地址为：", "无法获取 IP 地址")
+                }
+            } catch (e: Exception) {
+                Log.d("错误", "获取 IP 地址时出错: ${e.message}")
+            }
+        }
+    }
     fun copyVideoToAppDir(context: Context,videoUri: Uri) {
         val inputStream = context.contentResolver.openInputStream(videoUri)
         val outputDir = context.getExternalFilesDir(null)!!.absolutePath
         val outputFile = File(outputDir, "copied_video.mp4")
-
         inputStream?.use { input ->
             outputFile.outputStream().use { fileOut ->
                 input.copyTo(fileOut)
             }
         }
+        saveImage()
     }
+
+
+
 
     fun saveState() {
         infoManager.removeVideoStatus()
