@@ -114,16 +114,6 @@ fun HomeScreen() {
                 Text("查看直播推流")
             }
 
-//            Button(
-//                modifier = buttonModifier,
-//                onClick = {
-//                    donateDialog.value = true
-//                }
-//            ) {
-//                Text("捐赠")
-//            }
-
-
             SettingRow(
                 label = "视频开关",
                 checkedState = homeController.isVideoEnabled,
@@ -144,7 +134,6 @@ fun HomeScreen() {
                 onCheckedChange = { homeController.saveState() },
                 context = context
             )
-
 
             SettingRow(
                 label = if (homeController.codecType.value) "硬解码" else "软解码",
@@ -185,31 +174,6 @@ fun HomeScreen() {
         VideoPlayerDialog(homeController, context, videoPath)
 //        DisclaimerDialog()
 //        ShowImageDialogButton(donateDialog)
-    }
-}
-
-@Composable
-fun ShowImageDialogButton(showDialog: MutableState<Boolean>) {
-    if (showDialog.value) {
-        Dialog(onDismissRequest = { showDialog.value = false }) {
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .fillMaxHeight()
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Image(
-                        painter = painterResource(id = R.drawable.donate),
-                        contentDescription = "Dialog Image"
-                    )
-                    // 添加一个按钮用于关闭对话框
-                    Button(onClick = { showDialog.value = false }) {
-                        Text("关闭")
-                    }
-                }
-            }
-        }
     }
 }
 

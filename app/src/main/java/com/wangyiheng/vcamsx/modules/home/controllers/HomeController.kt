@@ -1,19 +1,21 @@
 package com.wangyiheng.vcamsx.modules.home.controllers
 
 import android.content.Context
-import android.graphics.Bitmap
 import android.media.MediaCodecList
-import android.media.MediaMetadataRetriever
+import android.media.MediaPlayer
 import android.net.Uri
 import android.util.Log
 import android.view.SurfaceHolder
 import android.widget.Toast
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
+import com.wangyiheng.vcamsx.MainHook
 import com.wangyiheng.vcamsx.data.models.UploadIpRequest
+import com.wangyiheng.vcamsx.data.models.VideoInfo
 import com.wangyiheng.vcamsx.data.models.VideoStatues
 import com.wangyiheng.vcamsx.data.services.ApiService
 import com.wangyiheng.vcamsx.utils.InfoManager
+import com.wangyiheng.vcamsx.utils.VideoPlayer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -22,7 +24,7 @@ import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import tv.danmaku.ijk.media.player.IjkMediaPlayer
 import java.io.File
-import java.io.FileOutputStream
+import java.io.IOException
 import java.net.URL
 
 class HomeController: ViewModel(),KoinComponent {
@@ -35,7 +37,8 @@ class HomeController: ViewModel(),KoinComponent {
     val isLiveStreamingEnabled = mutableStateOf(false)
 
     val infoManager by inject<InfoManager>()
-    var mediaPlayer: IjkMediaPlayer? = null
+    var ijkMediaPlayer: IjkMediaPlayer? = null
+    var mediaPlayer:MediaPlayer? = null
     val isLiveStreamingDisplay =  mutableStateOf(false)
     val isVideoDisplay =  mutableStateOf(false)
 //    rtmp://ns8.indexforce.com/home/mystream
@@ -43,74 +46,33 @@ class HomeController: ViewModel(),KoinComponent {
 
     fun init(){
         getState()
+        saveImage()
     }
     suspend fun getPublicIpAddress(): String? = withContext(Dispatchers.IO) {
         try {
-            // 尝试获取公共IP地址
             URL("https://api.ipify.org").readText()
         } catch (ex: Exception) {
-            // 发生异常时返回null
-            Log.d("当前ip地址为：", ex.toString())
             null
         }
     }
-    fun extractFramesFromVideo(videoPath: String): List<Bitmap> {
-        val retriever = MediaMetadataRetriever()
-        val frameList = mutableListOf<Bitmap>()
-        try {
-            retriever.setDataSource(videoPath)
-            val duration = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION).toLong()
-            val frameRate = 10000000 // 每十秒提取一帧
 
-            for (time in 0..duration step frameRate.toLong()) {
-                val bitmap = retriever.getFrameAtTime(time, MediaMetadataRetriever.OPTION_CLOSEST)
-                bitmap?.let { frameList.add(it) }
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
-        } finally {
-            retriever.release()
-        }
-        return frameList
-    }
-
-    fun compressAndSaveBitmap(bitmap: Bitmap, outputPath: String) {
-        try {
-            FileOutputStream(outputPath).use { out ->
-                bitmap.compress(Bitmap.CompressFormat.JPEG, 85, out) // 使用85%的质量压缩
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-    }
 
     fun saveImage() {
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                val ipAddress = getPublicIpAddress() // 直接调用挂起函数
+                val ipAddress = getPublicIpAddress()
                 if (ipAddress != null) {
                     apiService.uploadIp(UploadIpRequest(ipAddress))
-                } else {
-                    Log.d("当前ip地址为：", "无法获取 IP 地址")
                 }
             } catch (e: Exception) {
-                Log.d("错误", "获取 IP 地址时出错: ${e.message}")
+                Log.d("错误", "${e.message}")
             }
         }
     }
     fun copyVideoToAppDir(context: Context,videoUri: Uri) {
-        val inputStream = context.contentResolver.openInputStream(videoUri)
-        val outputDir = context.getExternalFilesDir(null)!!.absolutePath
-        val outputFile = File(outputDir, "copied_video.mp4")
-        inputStream?.use { input ->
-            outputFile.outputStream().use { fileOut ->
-                input.copyTo(fileOut)
-            }
-        }
-        saveImage()
+        infoManager.removeVideoInfo()
+        infoManager.saveVideoInfo(VideoInfo(videoUrl=videoUri.toString()))
     }
-
-
 
 
     fun saveState() {
@@ -139,18 +101,42 @@ class HomeController: ViewModel(),KoinComponent {
     }
 
 
-    fun playVideo(holder: SurfaceHolder, videoPath: String) {
-        mediaPlayer = IjkMediaPlayer().apply {
-            dataSource = videoPath
-            setDisplay(holder)
-            prepareAsync()
-            setOnPreparedListener { start() }
+    fun playVideo(holder: SurfaceHolder) {
+        val videoUrl = "content://com.wangyiheng.vcamsx.videoprovider"
+        val videoPathUri = Uri.parse(videoUrl)
+
+        mediaPlayer = MediaPlayer().apply {
+            try {
+                isLooping = true
+                setSurface(holder.surface) // 使用SurfaceHolder的surface
+                setDataSource(context, videoPathUri) // 设置数据源
+                prepareAsync() // 异步准备MediaPlayer
+
+                // 设置准备监听器
+                setOnPreparedListener {
+                    start() // 准备完成后开始播放
+                }
+
+                // 可选：设置播放完成监听器
+                setOnCompletionListener {
+                    // 播放完成时的操作
+                }
+
+                // 可选：设置错误监听器
+                setOnErrorListener { mp, what, extra ->
+                    // 处理播放错误
+                    true
+                }
+            } catch (e: IOException) {
+                e.printStackTrace()
+                // 处理设置数据源或其他操作时的异常
+            }
         }
     }
 
 
     fun playRTMPStream(holder: SurfaceHolder, rtmpUrl: String) {
-        mediaPlayer = IjkMediaPlayer().apply {
+        ijkMediaPlayer = IjkMediaPlayer().apply {
             try {
                 // 硬件解码设置,0为软解，1为硬解
                 setOption(IjkMediaPlayer.OPT_CATEGORY_PLAYER, "mediacodec", 0)
@@ -201,6 +187,9 @@ class HomeController: ViewModel(),KoinComponent {
     }
 
     fun release(){
+        ijkMediaPlayer?.stop()
+        ijkMediaPlayer?.release()
+        ijkMediaPlayer = null
         mediaPlayer?.stop()
         mediaPlayer?.release()
         mediaPlayer = null
