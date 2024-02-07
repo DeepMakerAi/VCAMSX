@@ -5,25 +5,19 @@ import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.ClickableText
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.wangyiheng.vcamsx.R
-import com.wangyiheng.vcamsx.components.DisclaimerDialog
 import com.wangyiheng.vcamsx.components.LivePlayerDialog
 import com.wangyiheng.vcamsx.components.SettingRow
 import com.wangyiheng.vcamsx.components.VideoPlayerDialog
@@ -35,13 +29,9 @@ import com.wangyiheng.vcamsx.modules.home.controllers.HomeController
 fun HomeScreen() {
     val context = LocalContext.current
     val homeController =  viewModel<HomeController>()
-    val donateDialog  = remember { mutableStateOf(false) }
     LaunchedEffect(Unit){
         homeController.init()
     }
-
-    val videoPath = context.getExternalFilesDir(null)!!.absolutePath + "/copied_video.mp4"
-
 
     val selectVideoLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -67,6 +57,7 @@ fun HomeScreen() {
             }
         }
     )
+
     Card(modifier = Modifier.padding(16.dp).fillMaxWidth()) {
         val buttonModifier = Modifier
             .fillMaxWidth()
@@ -171,9 +162,7 @@ fun HomeScreen() {
         }
 
         LivePlayerDialog(homeController)
-        VideoPlayerDialog(homeController, context, videoPath)
-//        DisclaimerDialog()
-//        ShowImageDialogButton(donateDialog)
+        VideoPlayerDialog(homeController)
     }
 }
 

@@ -9,6 +9,7 @@ import com.wangyiheng.vcamsx.MainHook
 import com.wangyiheng.vcamsx.MainHook.Companion.TAG
 import com.wangyiheng.vcamsx.MainHook.Companion.c2_reader_Surfcae
 import com.wangyiheng.vcamsx.MainHook.Companion.context
+import com.wangyiheng.vcamsx.MainHook.Companion.oriHolder
 import com.wangyiheng.vcamsx.MainHook.Companion.original_c1_preview_SurfaceTexture
 import com.wangyiheng.vcamsx.MainHook.Companion.original_preview_Surface
 import com.wangyiheng.vcamsx.utils.InfoProcesser.videoStatus
@@ -184,7 +185,10 @@ object VideoPlayer {
         if (original_c1_preview_SurfaceTexture != null && videoStatus?.isVideoEnable == true) {
             original_preview_Surface = Surface(original_c1_preview_SurfaceTexture)
             if(original_preview_Surface!!.isValid == true){
-
+                handleMediaPlayer(original_preview_Surface!!)
+            }
+            original_preview_Surface = oriHolder?.surface
+            if(original_preview_Surface!!.isValid == true){
                 handleMediaPlayer(original_preview_Surface!!)
             }
         }
@@ -192,7 +196,6 @@ object VideoPlayer {
         c2_reader_Surfcae?.let { surface ->
             c2_reader_play(surface)
         }
-
     }
 
     fun c2_reader_play(c2_reader_Surfcae:Surface){

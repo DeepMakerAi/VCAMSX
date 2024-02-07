@@ -12,6 +12,7 @@ import android.net.Uri
 import android.os.Handler
 import android.util.Log
 import android.view.Surface
+import android.view.SurfaceHolder
 import android.widget.Toast
 import cn.dianbobo.dbb.util.HLog
 import com.wangyiheng.vcamsx.utils.InfoProcesser.videoStatus
@@ -30,8 +31,6 @@ import kotlin.math.min
 
 
 class MainHook : IXposedHookLoadPackage {
-
-
     companion object {
         val TAG = "vcamsx"
         @Volatile
@@ -40,6 +39,9 @@ class MainHook : IXposedHookLoadPackage {
         var c2_builder: CaptureRequest.Builder? = null
         var origin_preview_camera: Camera? = null
         var fake_SurfaceTexture: SurfaceTexture? = null
+        var c1FakeTexture: SurfaceTexture? = null
+        var c1FakeSurface: Surface? = null
+
         var original_preview_Surface: Surface? = null
         var original_c1_preview_SurfaceTexture:SurfaceTexture? = null
         var isPlaying:Boolean = false
@@ -49,6 +51,8 @@ class MainHook : IXposedHookLoadPackage {
         var camera_onPreviewFrame: Camera? = null
         var camera_callback_calss: Class<*>? = null
         var hw_decode_obj: VideoToFrames? = null
+        var mcamera1: Camera? = null
+        var oriHolder: SurfaceHolder? = null
 
     }
 
@@ -136,6 +140,38 @@ class MainHook : IXposedHookLoadPackage {
                 }
             })
 
+        XposedHelpers.findAndHookMethod("android.hardware.Camera", lpparam.classLoader, "addCallbackBuffer",
+            ByteArray::class.java, object : XC_MethodHook() {
+                override fun beforeHookedMethod(param: MethodHookParam) {
+                    if (param.args[0] != null) {
+                        param.args[0] = ByteArray((param.args[0] as ByteArray).size)
+                    }
+                }
+            })
+
+        XposedHelpers.findAndHookMethod("android.hardware.Camera", lpparam.classLoader, "setPreviewDisplay", SurfaceHolder::class.java, object : XC_MethodHook() {
+            @Throws(Throwable::class)
+            override fun beforeHookedMethod(param: MethodHookParam) {
+                mcamera1 = param.thisObject as Camera
+                oriHolder = param.args[0] as SurfaceHolder
+                if (c1FakeTexture == null) {
+                    c1FakeTexture = SurfaceTexture(11)
+                } else {
+                    c1FakeTexture!!.release()
+                    c1FakeTexture = SurfaceTexture(11)
+                }
+
+                if (c1FakeSurface == null) {
+                    c1FakeSurface = Surface(c1FakeTexture)
+                } else {
+                    c1FakeSurface!!.release()
+                    c1FakeSurface = Surface(c1FakeTexture)
+                }
+                mcamera1!!.setPreviewTexture(c1FakeTexture)
+                param.result = null
+            }
+        })
+
         XposedHelpers.findAndHookMethod(
             "android.hardware.camera2.CameraManager", lpparam.classLoader, "openCamera",
             String::class.java,
@@ -174,9 +210,6 @@ class MainHook : IXposedHookLoadPackage {
                         }
                         System.arraycopy(data_buffer, 0, paramd.args[0], 0, min(data_buffer.size.toDouble(), (paramd.args[0] as ByteArray).size.toDouble()).toInt())
                     } else {
-//                        val camera_callback_calss = preview_cb_class
-//                        val camera_onPreviewFrame = paramd.args[1] as Camera
-
                         camera_callback_calss = preview_cb_class
                         camera_onPreviewFrame = paramd.args[1] as Camera
                         val mwidth = camera_onPreviewFrame!!.getParameters().getPreviewSize().width
@@ -192,14 +225,12 @@ class MainHook : IXposedHookLoadPackage {
                         hw_decode_obj = VideoToFrames()
                         hw_decode_obj!!.setSaveFrames(OutputImageFormat.NV21)
                         val video_path = "/storage/emulated/0/Android/data/com.smile.gifmaker/files/Camera1/"
-                        Log.d("vcamsx", video_path)
+
                         val videoUrl = "content://com.wangyiheng.vcamsx.videoprovider"
                         val videoPathUri = Uri.parse(videoUrl)
                         hw_decode_obj!!.decode( videoPathUri )
                         while ( data_buffer == null) {
                         }
-//                        Log.d("vcamsx","data_buffer"+data_buffer.size.toString())
-//                        Log.d("vcamsx","paramd.args[0]"+(paramd.args[0] as ByteArray).size.toString())
                         System.arraycopy(data_buffer, 0, paramd.args[0], 0, min(data_buffer.size.toDouble(), (paramd.args[0] as ByteArray).size.toDouble()).toInt())
                     }
                 }

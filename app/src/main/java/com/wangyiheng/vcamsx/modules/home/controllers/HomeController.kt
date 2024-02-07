@@ -73,8 +73,6 @@ class HomeController: ViewModel(),KoinComponent {
         infoManager.removeVideoInfo()
         infoManager.saveVideoInfo(VideoInfo(videoUrl=videoUri.toString()))
     }
-
-
     fun saveState() {
         infoManager.removeVideoStatus()
         infoManager.saveVideoStatus(
@@ -115,11 +113,6 @@ class HomeController: ViewModel(),KoinComponent {
                 // 设置准备监听器
                 setOnPreparedListener {
                     start() // 准备完成后开始播放
-                }
-
-                // 可选：设置播放完成监听器
-                setOnCompletionListener {
-                    // 播放完成时的操作
                 }
 
                 // 可选：设置错误监听器

@@ -1,6 +1,5 @@
 package com.wangyiheng.vcamsx.components
 
-import android.content.Context
 import android.view.SurfaceHolder
 import android.view.SurfaceView
 import androidx.compose.foundation.layout.Arrangement
@@ -14,7 +13,7 @@ import androidx.compose.ui.window.Dialog
 import com.wangyiheng.vcamsx.modules.home.controllers.HomeController
 
 @Composable
-fun VideoPlayerDialog(homeController: HomeController, context: Context, videoPath: String) {
+fun VideoPlayerDialog(homeController: HomeController) {
     if (homeController.isVideoDisplay.value) {
         Dialog(onDismissRequest = {
             homeController.isVideoDisplay.value = false
