@@ -5,8 +5,6 @@ import android.net.Uri
 import android.util.Log
 import android.view.Surface
 import android.widget.Toast
-import com.wangyiheng.vcamsx.MainHook
-import com.wangyiheng.vcamsx.MainHook.Companion.TAG
 import com.wangyiheng.vcamsx.MainHook.Companion.c2_reader_Surfcae
 import com.wangyiheng.vcamsx.MainHook.Companion.context
 import com.wangyiheng.vcamsx.MainHook.Companion.oriHolder
@@ -134,36 +132,51 @@ object VideoPlayer {
     }
 
 
+    // 将surface传入进行播放
     private fun handleMediaPlayer(surface: Surface) {
         try {
             // 数据初始化
             InfoProcesser.initStatus()
-            if(videoStatus?.isVideoEnable == false && videoStatus?.isLiveStreamingEnabled == false) return
 
-            videoStatus?.let { status ->
+            videoStatus?.also { status ->
+                if (!status.isVideoEnable && !status.isLiveStreamingEnabled) return
+
                 val volume = if (status.volume) 1F else 0F
 
-                if(status.isLiveStreamingEnabled){
-
-                    ijkMediaPlayer?.apply {
-                        setVolume(volume, volume)
-                        setSurface(surface)
+                when {
+                    status.isLiveStreamingEnabled -> {
+                        ijkMediaPlayer?.let {
+                            it.setVolume(volume, volume)
+                            it.setSurface(surface)
+                        }
                     }
-                }else{
-                    releaseMediaPlayer()
-                    // 播放器存在就播放视频，不存在就创建播放器重新播放
-                    mediaPlayer?.takeIf { it.isPlaying }?.apply {
-                        setVolume(volume, volume)
-                        setSurface(surface)
-                    } ?: initMediaPlayer(surface)
+                    else -> {
+                        mediaPlayer?.also {
+                            if (it.isPlaying) {
+                                it.setVolume(volume, volume)
+                                it.setSurface(surface)
+                            } else {
+                                releaseMediaPlayer()
+                                initMediaPlayer(surface)
+                            }
+                        } ?: run {
+                            releaseMediaPlayer()
+                            initMediaPlayer(surface)
+                        }
+                    }
                 }
-
             }
         } catch (e: Exception) {
             // 这里可以添加更详细的异常处理或日志记录
-            e.printStackTrace()
+            logError("MediaPlayer Error", e)
         }
     }
+
+    private fun logError(message: String, e: Exception) {
+        // 实现日志记录逻辑，例如使用Android的Log.e函数
+        Log.e("MediaPlayerHandler", "$message: ${e.message}")
+    }
+
 
     fun releaseMediaPlayer(){
         if(mediaPlayer == null)return
@@ -172,7 +185,7 @@ object VideoPlayer {
         mediaPlayer = null
     }
 
-    fun ijkplay_play() {
+    fun camera2Play() {
         // 带name的surface
         original_preview_Surface?.let { surface ->
             handleMediaPlayer(surface)
@@ -185,11 +198,14 @@ object VideoPlayer {
     }
 
     fun c1_camera_play() {
-        if (original_c1_preview_SurfaceTexture != null && videoStatus?.isVideoEnable == true) {
+        if (original_c1_preview_SurfaceTexture != null) {
             original_preview_Surface = Surface(original_c1_preview_SurfaceTexture)
             if(original_preview_Surface!!.isValid == true){
                 handleMediaPlayer(original_preview_Surface!!)
             }
+        }
+
+        if(oriHolder?.surface != null){
             original_preview_Surface = oriHolder?.surface
             if(original_preview_Surface!!.isValid == true){
                 handleMediaPlayer(original_preview_Surface!!)
