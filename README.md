@@ -11,6 +11,7 @@
 - Xposed 82
 - xiaomi 9 MIUI 11.0.3
 - xiaomi 8 MIUI 11.0.3
+- Redim K40 MUI 14.0.7
 - 酷比魔方50pro MIUI 14.0.5
 - Lsposed lastest
 ## 使用方法
